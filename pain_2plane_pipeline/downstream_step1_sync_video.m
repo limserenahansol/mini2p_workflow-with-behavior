@@ -73,8 +73,17 @@ start_bf = max(1, round((start_nf - 1) * ratio) + 1);
 end_bf   = round((end_nf) * ratio);
 
 % ---- Load camera videos ----
-cam1_dir = fullfile(session_dir, cam1_sub);
-cam2_dir = fullfile(session_dir, cam2_sub);
+% AVIs are in <session>/MiceVideo1/MiceVideo/*.avi (nested subfolder)
+cam1_dir = fullfile(session_dir, cam1_sub, 'MiceVideo');
+cam2_dir = fullfile(session_dir, cam2_sub, 'MiceVideo');
+
+% Fall back to direct subfolder if nested 'MiceVideo' doesn't exist
+if ~isfolder(cam1_dir)
+    cam1_dir = fullfile(session_dir, cam1_sub);
+end
+if ~isfolder(cam2_dir)
+    cam2_dir = fullfile(session_dir, cam2_sub);
+end
 
 [cam1_readers, cam1_seg] = load_camera_avis(cam1_dir);
 [cam2_readers, cam2_seg] = load_camera_avis(cam2_dir);
