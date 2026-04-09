@@ -1,33 +1,46 @@
 function pain_2plane_step4_behavior_scoring(session_dir, camera_id, output_folder, timestamps_mat)
 % Manual behavioral video scoring GUI.
 %
+% Camera 1 = Stimuli events (4 types)  |  Camera 2 = Mouse reaction events
+%
 % Loads all AVI files from one camera folder, concatenates them into a
 % continuous timeline, and presents a figure-based video player for manual
-% event annotation.
+% event annotation with per-camera event types.
 %
 % Controls:
-%   Space       Play / Pause
-%   Right arrow  Step forward 1 frame
-%   Left arrow   Step backward 1 frame
-%   A            Mark stimulus event at current frame
-%   D            Delete last event
-%   S            Save events to file
+%   Space        Play / Pause (starts at 5x speed)
+%   Right arrow  Step forward 1 frame  (hold Shift: +10 frames)
+%   Left arrow   Step backward 1 frame (hold Shift: -10 frames)
+%
+%   Camera 1 keys:
+%     A   "Soft_touch"        (soft tactile stimulus)
+%     S   "Strong_touch"      (strong tactile stimulus)
+%     D   "Mechanic_pain"     (mechanical pain stimulus)
+%     F   "Thermo_pain"       (thermal pain stimulus)
+%
+%   Camera 2 keys:
+%     A   "Mouse_reaction"    (mouse behavioral response)
+%     S   "Reaction_offset"   (end of response)
+%
+%   X            Delete last event
+%   W            Save events to file
 %   Q / Escape   Save and close
-%   +/-          Speed up / slow down playback
+%   +/-          Speed up / slow down playback (1x,2x,5x,10x,30x)
 %
 % Usage:
-%   pain_2plane_step4_behavior_scoring(session_dir, 1)          % camera 1
-%   pain_2plane_step4_behavior_scoring(session_dir, 2, out_dir) % camera 2
+%   pain_2plane_step4_behavior_scoring(session_dir, 1)          % cam 1: stimuli
+%   pain_2plane_step4_behavior_scoring(session_dir, 2, out_dir) % cam 2: reaction
 %   pain_2plane_step4_behavior_scoring(session_dir, 1, out_dir, 'timestamps.mat')
 %
 % Output:
 %   <output_folder>/behavior_events_cam<N>.mat
-%     .event_frames      - frame indices in concatenated video
-%     .event_timestamps  - datetime values (if timestamps_mat provided)
-%     .event_labels      - cell array of event types (all 'A')
-%     .avi_files          - list of AVI files used
-%     .segment_boundaries - cumulative frame count per AVI
-%     .camera_id          - which camera was scored
+%     .event_frames           - frame indices in concatenated video
+%     .event_timestamps       - datetime values (if timestamps_mat provided)
+%     .event_labels           - cell array of event type labels
+%     .event_type_definitions - cell array of all possible labels for this camera
+%     .avi_names              - list of AVI files used
+%     .segment_boundaries     - cumulative frame count per AVI
+%     .cam_id                 - which camera was scored
 
 if nargin < 2 || isempty(camera_id), camera_id = 1; end
 if nargin < 3 || isempty(output_folder)
@@ -36,7 +49,34 @@ end
 if nargin < 4, timestamps_mat = ''; end
 if ~isfolder(output_folder), mkdir(output_folder); end
 
+% ---- Camera-specific event definitions ----
+% Each entry: {key, label, color}
+if camera_id == 1
+    cam_purpose = 'Stimuli camera';
+    event_map = {
+        'a', 'Soft_touch',     [0.2 0.8 0.2];   % green
+        's', 'Strong_touch',   [1.0 0.6 0.0];   % orange
+        'd', 'Mechanic_pain',  [1.0 0.2 0.2];   % red
+        'f', 'Thermo_pain',    [0.8 0.2 1.0];   % purple
+    };
+else
+    cam_purpose = 'Mouse reaction camera';
+    event_map = {
+        'a', 'Mouse_reaction',   [0.2 0.8 0.2];   % green
+        's', 'Reaction_offset',  [0.2 0.6 1.0];   % blue
+    };
+end
+
+% Build lookup
+event_keys   = event_map(:,1);
+event_labels_def = event_map(:,2);
+event_colors = event_map(:,3);
+
 disp('===== Step 4: Behavioral Video Scoring GUI =====');
+disp(['  Camera ', num2str(camera_id), ': ', cam_purpose]);
+for ei = 1:size(event_map, 1)
+    disp(['    [', upper(event_map{ei,1}), '] = "', event_map{ei,2}, '"']);
+end
 
 % ---- Locate AVIs ----
 if camera_id == 1
@@ -49,10 +89,9 @@ avi_files = dir(fullfile(avi_dir, '*.avi'));
 if isempty(avi_files)
     error('No AVI files found in %s', avi_dir);
 end
-% Sort by name (chronological)
 [~, sort_idx] = sort({avi_files.name});
 avi_files = avi_files(sort_idx);
-disp(['  Camera ', num2str(camera_id), ': ', num2str(numel(avi_files)), ' AVI files']);
+disp(['  AVI files: ', num2str(numel(avi_files))]);
 
 % ---- Build video reader info ----
 readers = cell(numel(avi_files), 1);
@@ -82,65 +121,92 @@ if ~isempty(timestamps_mat) && isfile(timestamps_mat)
     end
 end
 
+% ---- Load existing events if re-scoring ----
+existing_file = fullfile(output_folder, sprintf('behavior_events_cam%d.mat', camera_id));
+loaded_events = false;
+
 % ---- State ----
 state = struct();
 state.current_frame = 1;
 state.playing = false;
-state.playback_speed = 1.0;
+state.playback_speed = 8.0;    % default 5x speed
 state.event_frames = [];
 state.event_labels = {};
 state.total_frames = total_frames;
 state.fps = readers{1}.FrameRate;
 if isempty(state.fps) || state.fps <= 0, state.fps = 30; end
 
-% ---- Build GUI ----
-fig = figure('Name', sprintf('Behavior Scoring - Camera %d', camera_id), ...
-    'NumberTitle', 'off', 'Position', [50 50 1100 750], ...
-    'CloseRequestFcn', @on_close, 'Color', [0.15 0.15 0.15]);
+if isfile(existing_file)
+    try
+        prev = load(existing_file);
+        if isfield(prev, 'event_frames') && isfield(prev, 'event_labels')
+            state.event_frames = prev.event_frames(:)';
+            state.event_labels = prev.event_labels(:)';
+            loaded_events = true;
+            disp(['  Loaded ', num2str(numel(state.event_frames)), ' existing events from previous session']);
+        end
+    catch
+    end
+end
 
-ax = axes('Parent', fig, 'Position', [0.02 0.15 0.96 0.80]);
+% ---- Build GUI ----
+key_hints = strjoin(cellfun(@(k,l) [upper(k),'=',l], event_keys, event_labels_def, 'Uni', false), '  ');
+fig = figure('Name', sprintf('Cam %d: %s  |  %s', camera_id, cam_purpose, key_hints), ...
+    'NumberTitle', 'off', 'Position', [50 50 1200 800], ...
+    'CloseRequestFcn', @on_close, 'Color', [0.12 0.12 0.12]);
+
+ax = axes('Parent', fig, 'Position', [0.02 0.18 0.96 0.78]);
 axis(ax, 'off');
 
-% Info text
+% Info panel (bottom left)
 info_txt = uicontrol('Style', 'text', 'Parent', fig, ...
-    'Units', 'normalized', 'Position', [0.02 0.01 0.55 0.10], ...
+    'Units', 'normalized', 'Position', [0.02 0.01 0.50 0.12], ...
     'FontSize', 11, 'HorizontalAlignment', 'left', ...
-    'BackgroundColor', [0.15 0.15 0.15], 'ForegroundColor', [0.9 0.9 0.9]);
+    'BackgroundColor', [0.12 0.12 0.12], 'ForegroundColor', [0.9 0.9 0.9]);
 
-% Event count text
+% Event count panel (bottom right)
 event_txt = uicontrol('Style', 'text', 'Parent', fig, ...
-    'Units', 'normalized', 'Position', [0.58 0.01 0.40 0.10], ...
-    'FontSize', 11, 'HorizontalAlignment', 'right', ...
-    'BackgroundColor', [0.15 0.15 0.15], 'ForegroundColor', [1 1 0]);
+    'Units', 'normalized', 'Position', [0.53 0.01 0.45 0.12], ...
+    'FontSize', 10, 'HorizontalAlignment', 'right', ...
+    'BackgroundColor', [0.12 0.12 0.12], 'ForegroundColor', [1 1 0.4]);
 
 % Slider
 slider = uicontrol('Style', 'slider', 'Parent', fig, ...
-    'Units', 'normalized', 'Position', [0.02 0.11 0.96 0.03], ...
+    'Units', 'normalized', 'Position', [0.02 0.14 0.96 0.03], ...
     'Min', 1, 'Max', total_frames, 'Value', 1, ...
     'SliderStep', [1/total_frames, 100/total_frames], ...
     'Callback', @on_slider);
 
-% Key handler
 set(fig, 'KeyPressFcn', @on_key);
 
-% Display first frame
 show_frame(1);
 update_info();
 
 % ---- Playback timer ----
+% Fixed period (~30ms). Speed is achieved by skipping frames, not faster ticks.
 play_timer = timer('ExecutionMode', 'fixedSpacing', ...
-    'Period', max(0.01, round(1/state.fps/state.playback_speed, 3)), ...
+    'Period', 0.033, ...
     'TimerFcn', @on_timer_tick);
 
-disp('  GUI ready. Controls: Space=play/pause, A=mark event, D=undo, S=save, Q=quit');
+disp(' ');
+disp('  Controls:');
+disp('    Space      = Play/Pause (starts at 5x)');
+disp('    Arrow L/R  = Step frame (hold Shift: 10 frames)');
+for ei = 1:size(event_map, 1)
+    disp(['    ', upper(event_map{ei,1}), '          = Mark "', event_map{ei,2}, '"']);
+end
+disp('    X          = Delete last event');
+disp('    W          = Save    Q/Esc = Save & close');
+disp('    +/-        = Speed: 1x,2x,5x,10x,15x,30x');
+disp(' ');
 uiwait(fig);
 
-% ---- Nested functions ----
+% ========== NESTED FUNCTIONS ==========
 
     function show_frame(idx)
         idx = max(1, min(total_frames, round(idx)));
         state.current_frame = idx;
-        % Find which segment
+        if ~isvalid(ax), return; end
         seg = find(idx <= seg_boundaries, 1, 'first');
         if seg == 1
             local_idx = idx;
@@ -150,19 +216,27 @@ uiwait(fig);
         readers{seg}.CurrentTime = (local_idx - 1) / readers{seg}.FrameRate;
         fr = readFrame(readers{seg});
         imshow(fr, 'Parent', ax);
-        % Draw event markers on frame
+
         if ~isempty(state.event_frames)
             hold(ax, 'on');
-            near = abs(state.event_frames - idx) < 3;
-            if any(near)
-                text(ax, 20, 30, 'EVENT', 'Color', 'r', 'FontSize', 18, 'FontWeight', 'bold');
+            near_idx = find(abs(state.event_frames - idx) < 3);
+            if ~isempty(near_idx)
+                y_pos = 30;
+                for ni = 1:numel(near_idx)
+                    lbl = state.event_labels{near_idx(ni)};
+                    clr = get_event_color(lbl);
+                    text(ax, 20, y_pos, strrep(lbl, '_', ' '), 'Color', clr, ...
+                        'FontSize', 16, 'FontWeight', 'bold');
+                    y_pos = y_pos + 25;
+                end
             end
             hold(ax, 'off');
         end
-        slider.Value = idx;
+        if isvalid(slider), slider.Value = idx; end
     end
 
     function update_info()
+        if ~isvalid(info_txt), return; end
         ts_str = '';
         if ~isempty(behav_ts) && state.current_frame <= numel(behav_ts)
             ts_str = ['  |  ', char(behav_ts(state.current_frame), 'HH:mm:ss.SSS')];
@@ -170,39 +244,55 @@ uiwait(fig);
         elapsed = (state.current_frame - 1) / state.fps;
         play_str = 'PAUSED';
         if state.playing, play_str = sprintf('PLAYING x%.1f', state.playback_speed); end
-        info_txt.String = sprintf('Frame %d / %d  |  %.1f s  |  %s%s', ...
+        info_txt.String = sprintf('Frame %d / %d  |  %.1fs  |  %s%s', ...
             state.current_frame, total_frames, elapsed, play_str, ts_str);
-        event_txt.String = sprintf('Events: %d  |  [A]=mark  [D]=undo  [S]=save  [Q]=quit', ...
-            numel(state.event_frames));
+
+        count_parts = {};
+        for ei = 1:numel(event_labels_def)
+            n = sum(strcmp(state.event_labels, event_labels_def{ei}));
+            count_parts{end+1} = sprintf('%s:%d', event_labels_def{ei}, n); %#ok<AGROW>
+        end
+        if isvalid(event_txt)
+            event_txt.String = [strjoin(count_parts, '  |  '), ...
+                sprintf('  |  Total: %d', numel(state.event_frames))];
+        end
     end
 
     function on_key(~, evt)
+        has_shift = any(strcmp(evt.Modifier, 'shift'));
         switch evt.Key
             case 'space'
                 toggle_play();
             case 'rightarrow'
                 stop_play();
-                show_frame(state.current_frame + 1);
+                step = 1;
+                if has_shift, step = 10; end
+                show_frame(state.current_frame + step);
                 update_info();
             case 'leftarrow'
                 stop_play();
-                show_frame(state.current_frame - 1);
+                step = 1;
+                if has_shift, step = 10; end
+                show_frame(state.current_frame - step);
                 update_info();
-            case 'a'
-                add_event();
-            case 'd'
+            case {'a','s','d','f'}
+                ki = find(strcmp(event_keys, evt.Key));
+                if ~isempty(ki)
+                    add_event(event_labels_def{ki});
+                end
+            case 'x'
                 delete_last_event();
-            case 's'
+            case 'w'
                 save_events();
             case {'q', 'escape'}
                 save_events();
                 on_close();
             case 'equal'
-                state.playback_speed = min(8, state.playback_speed * 2);
+                state.playback_speed = min(30, state.playback_speed * 2);
                 update_timer_period();
                 update_info();
             case 'hyphen'
-                state.playback_speed = max(0.125, state.playback_speed / 2);
+                state.playback_speed = max(1, state.playback_speed / 2);
                 update_timer_period();
                 update_info();
         end
@@ -227,22 +317,19 @@ uiwait(fig);
     end
 
     function update_timer_period()
-        if strcmp(play_timer.Running, 'on')
-            stop(play_timer);
-        end
-        play_timer.Period = max(0.01, round(1/state.fps/state.playback_speed, 3));
-        if state.playing
-            start(play_timer);
-        end
+        % Timer period is fixed; speed changes take effect via frame skipping
+        % in on_timer_tick. Nothing to update here.
     end
 
     function on_timer_tick(~, ~)
+        if ~isvalid(fig), return; end
         if state.current_frame >= total_frames
             stop_play();
             update_info();
             return;
         end
-        show_frame(state.current_frame + 1);
+        frame_step = max(1, round(state.playback_speed));
+        show_frame(state.current_frame + frame_step);
         update_info();
     end
 
@@ -252,50 +339,72 @@ uiwait(fig);
         update_info();
     end
 
-    function add_event()
+    function add_event(label)
         fr = state.current_frame;
-        if ~ismember(fr, state.event_frames)
-            state.event_frames(end+1) = fr;
-            state.event_labels{end+1} = 'A';
-            disp(['  + Event A at frame ', num2str(fr)]);
+        % Allow same frame only if different event type
+        already = find(state.event_frames == fr);
+        for ai = 1:numel(already)
+            if strcmp(state.event_labels{already(ai)}, label)
+                disp(['  (duplicate skipped: ', label, ' already at frame ', num2str(fr), ')']);
+                return;
+            end
         end
+        state.event_frames(end+1) = fr;
+        state.event_labels{end+1} = label;
+        disp(['  + ', label, ' at frame ', num2str(fr)]);
         update_info();
         show_frame(fr);
     end
 
     function delete_last_event()
         if ~isempty(state.event_frames)
-            removed = state.event_frames(end);
+            removed_fr = state.event_frames(end);
+            removed_lbl = state.event_labels{end};
             state.event_frames(end) = [];
             state.event_labels(end) = [];
-            disp(['  - Removed event at frame ', num2str(removed)]);
+            disp(['  - Removed ', removed_lbl, ' at frame ', num2str(removed_fr)]);
         end
         update_info();
         show_frame(state.current_frame);
     end
 
     function save_events()
-        event_frames = sort(state.event_frames(:));
-        event_labels = state.event_labels(:);
-        if numel(event_labels) ~= numel(event_frames)
-            [~, si] = sort(state.event_frames);
-            event_labels = state.event_labels(si);
-        end
+        [event_frames_sorted, si] = sort(state.event_frames(:));
+        event_frames = event_frames_sorted; %#ok<NASGU>
+        event_labels = state.event_labels(si); %#ok<NASGU>
+        event_labels = event_labels(:); %#ok<NASGU>
 
-        event_timestamps = [];
+        event_timestamps = []; %#ok<NASGU>
         if ~isempty(behav_ts)
-            valid = event_frames(event_frames <= numel(behav_ts));
-            event_timestamps = behav_ts(valid);
+            valid = event_frames_sorted(event_frames_sorted <= numel(behav_ts));
+            event_timestamps = behav_ts(valid); %#ok<NASGU>
         end
 
+        event_type_definitions = event_labels_def(:); %#ok<NASGU>
         avi_names = {avi_files.name}'; %#ok<NASGU>
         segment_boundaries = seg_boundaries; %#ok<NASGU>
         cam_id = camera_id; %#ok<NASGU>
+        cam_purpose_str = cam_purpose; %#ok<NASGU>
 
         out_file = fullfile(output_folder, sprintf('behavior_events_cam%d.mat', camera_id));
         save(out_file, 'event_frames', 'event_timestamps', 'event_labels', ...
-            'avi_names', 'segment_boundaries', 'cam_id', '-v7.3');
-        disp(['  Saved: ', out_file, ' (', num2str(numel(event_frames)), ' events)']);
+            'event_type_definitions', 'avi_names', 'segment_boundaries', ...
+            'cam_id', 'cam_purpose_str', '-v7.3');
+        disp(['  Saved: ', out_file]);
+
+        for ei = 1:numel(event_labels_def)
+            n = sum(strcmp(state.event_labels, event_labels_def{ei}));
+            disp(['    ', event_labels_def{ei}, ': ', num2str(n)]);
+        end
+    end
+
+    function clr = get_event_color(lbl)
+        ki = find(strcmp(event_labels_def, lbl), 1);
+        if ~isempty(ki)
+            clr = event_colors{ki};
+        else
+            clr = [1 1 1];
+        end
     end
 
     function on_close(~, ~)

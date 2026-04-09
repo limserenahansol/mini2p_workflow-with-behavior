@@ -18,10 +18,17 @@ mini2p_workflow-with-behavior/
 │   ├── pain_2plane_step1_merge_planes.m      # Load interleaved TIFs → max-project
 │   ├── pain_2plane_step2_extract.m           # EXTRACT wrapper (MC + cell detection)
 │   ├── pain_2plane_step3_parse_timestamps.m  # Parse TDMS timestamp files
-│   ├── pain_2plane_step4_behavior_scoring.m  # Interactive video scoring GUI
+│   ├── pain_2plane_step4_behavior_scoring.m  # Interactive video scoring GUI (4 stim types)
 │   ├── pain_2plane_step5_merge.m             # Merge neuron traces + behavior events
 │   ├── PIPELINE.md                           # Detailed pipeline documentation
-│   └── validate_pipeline.py                  # Python validation/QC script
+│   ├── validate_pipeline.py                  # Python validation/QC script
+│   │
+│   ├── downstream_master.m                   # Downstream analysis runner (press F5)
+│   ├── downstream_step1_sync_video.m         # DS-1: Synchronized 3-view video clip
+│   ├── downstream_step2_peri_event_traces.m  # DS-2: Peri-event dF/F traces
+│   ├── downstream_step3_auc_stats.m          # DS-3: AUC pre/post statistics
+│   ├── downstream_step4_baseline_vs_late.m   # DS-4: Baseline vs late comparison
+│   └── DOWNSTREAM_README.md                  # Downstream pipeline documentation
 │
 └── README.md                                 # ← You are here
 ```
@@ -49,6 +56,22 @@ General-purpose calcium imaging cell extraction pipeline. Two versions:
 ### 2. Pain 2-Plane Pipeline (`pain_2plane_pipeline/`)
 
 End-to-end pipeline for **2-plane interleaved calcium imaging** with synchronized behavioral video scoring. Designed for pain experiments with ETL z-stack acquisition.
+
+### 3. Downstream Analysis Pipeline (`pain_2plane_pipeline/downstream_*`)
+
+Post-processing analysis that runs after the main pipeline produces `final_neuron_behavior.mat`:
+
+| Step | Script | Description |
+|------|--------|-------------|
+| **DS-1** | `downstream_step1_sync_video.m` | Synchronized 3-panel video: cam1 (stimuli) + cam2 (reaction) + dF/F heatmap |
+| **DS-2** | `downstream_step2_peri_event_traces.m` | Peri-event (time-locked) dF/F traces per stimulus type (mean ± SEM) |
+| **DS-3** | `downstream_step3_auc_stats.m` | AUC pre/post event bar graphs with Wilcoxon signed-rank tests |
+| **DS-4** | `downstream_step4_baseline_vs_late.m` | Baseline (0–5 min) vs late (23–28 min) activity comparison |
+
+**Event types (Camera 1):** Soft Touch, Strong Touch, Mechanic Pain, Thermo Pain  
+**Event types (Camera 2):** Mouse Reaction, Reaction Offset
+
+**Run:** Open `downstream_master.m`, verify paths, press F5. See [`DOWNSTREAM_README.md`](pain_2plane_pipeline/DOWNSTREAM_README.md) for full documentation.
 
 ---
 
