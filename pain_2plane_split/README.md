@@ -38,6 +38,43 @@ Full measured QC report, including every number quoted below:
 `compare_curated_traces.py` and `sync_curation_record.py` are checks, not
 steps.
 
+## Figures for confirmation
+
+Four figure sets, each opening with the whole field of view and then going
+to detail. Methods and statistics are written into each figure's own legend,
+so they stand alone. Examples are in [`figures/`](figures).
+
+| script | what it argues | output |
+|---|---|---|
+| `fig1_processing.py` | each processing step improved the movie, measured | `<plane>\curated\fig1_processing.png` |
+| `fig2_detection.py` | the detection is real, shown rather than asserted | `<plane>\curated\fig2_detection.png` |
+| `fig3_place.py` | how a centre or corner cell is decided | `<open field>\place\fig3_place.png` |
+| `fig4_matched.py` | the same neuron in both sessions, one row per cell | `<pain>\match\fig4_matched_{z,dff,rawF}.png` |
+| `make_visual_ppt.py` | the four sets as one deck, tall figures cut into slide-shaped bands | `CEANTSR1_visualisation_*.pptx` |
+| `make_pipeline_ppt.py` | the narrative report: data, pipeline, QC, results | `CEANTSR1_pipeline_*.pptx` |
+
+Three design rules these follow, because each one caught a mistake:
+
+**One metric judges one stage.** Plotting a single number across every
+processing step and calling the rise an improvement is easy and wrong - a
+spatial blur raises frame-to-frame correlation for free. `fig1_processing.py`
+gives each stage the metric that is supposed to fix it and marks which with a
+grey band. Two metrics also became invalid after the band-pass, which removes
+the mean: mean/noise SNR read 1.48 and a ratio-form contrast read +15.5, both
+from dividing by ~0. They are now marked n/a or normalised by the image SD.
+
+**Show the comparison, not the p-value.** `fig2_detection.py` puts each cell
+next to its own footprint shape moved to the nearest clear spot in the same
+movie. Same tissue, same noise, same extraction, no soma. On pain plane A the
+cell beats its own control on lag-1 autocorrelation in 11 of 11 cases and on
+skew in only 6 of 11 - so one of the two metrics is doing the work here, which
+the figure shows rather than hides.
+
+**Never let smoothing invent data.** The first place-map version blurred the
+occupancy-normalised rate maps with a permissive weight cut, which painted
+colour into bins the mouse never entered. The occupancy mask is now
+re-applied after smoothing.
+
 ---
 
 ## Five things that will bite anyone running this

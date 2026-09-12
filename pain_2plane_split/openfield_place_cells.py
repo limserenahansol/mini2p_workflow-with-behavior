@@ -420,7 +420,11 @@ def plot_maps(maps, D, bbox, nbin, outdir):
         m = maps[k]
         mm = np.where(np.isnan(m), 0, m)
         w = gaussian_filter((~np.isnan(m)).astype(float), SMOOTH_BINS)
-        sm = np.where(w > 0.05, gaussian_filter(mm, SMOOTH_BINS) / w, np.nan)
+        # Re-apply the occupancy mask after smoothing. With a 0.05 weight cut
+        # the blur painted colour into bins the mouse never entered, so the
+        # map looked full while the occupancy behind it was sparse.
+        sm = np.where(w > 0.35, gaussian_filter(mm, SMOOTH_BINS) / w, np.nan)
+        sm[np.isnan(m)] = np.nan
         v = np.nanmax(np.abs(sm)) or 1.0
         im = a.imshow(sm, cmap="RdBu_r", vmin=-v, vmax=v, origin="upper")
         r = D[(D["plane"] == k[0]) & (D["cell"] == k[1])].iloc[0]
