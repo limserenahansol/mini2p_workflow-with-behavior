@@ -30,8 +30,24 @@ mini2p_workflow-with-behavior/
 │   ├── downstream_step4_baseline_vs_late.m   # DS-4: Baseline vs late comparison
 │   └── DOWNSTREAM_README.md                  # Downstream pipeline documentation
 │
+├── pain_2plane_split/                        # Same data, two ETL depths kept SEPARATE
+│   ├── README.md                             # workflow order + the traps that bite
+│   ├── EXTRACT_QC_20260911.md                # measured QC report, 2026-09-11 sessions
+│   ├── split_master.m                        # split the depths, then EXTRACT per plane
+│   ├── extract_qc_cells.py                   # is each footprint a cell? (background null)
+│   ├── apply_curation.py / .m                # apply hand-curation, re-solve traces
+│   ├── openfield_track.py                    # mouse tracking, white floor only
+│   ├── openfield_place_cells.py              # centre vs corner cells
+│   └── match_sessions.py                     # follow the same neuron across sessions
+│
 └── README.md                                 # ← You are here
 ```
+
+> `pain_2plane_pipeline/` max-projects the two ETL depths into one movie.
+> `pain_2plane_split/` keeps them apart — on the 2026-09-11 sessions the
+> projection was measured to merge ~29 % of cells. The two write to different
+> output folders (`output\` and `output_split\`) and can run on the same data.
+> See [`pain_2plane_split/README.md`](pain_2plane_split/README.md).
 
 ---
 

@@ -1,0 +1,56 @@
+plane,label,op,peak_dff,r_vs_demixed
+OF-A,1,keep,0.109,1.0
+OF-A,2,keep,0.064,1.0
+OF-A,3,keep,0.033,1.0
+OF-A,4,keep,0.018,1.0
+OF-A,5,keep,0.013,1.0
+OF-A,6,keep,0.012,1.0
+OF-A,8,keep,0.023,1.0
+OF-A,9,keep,0.027,1.0
+OF-A,10,keep,0.019,1.0
+OF-A,11,keep,0.024,1.0
+OF-A,12,keep,0.053,1.0
+OF-A,14,keep,0.012,1.0
+OF-B,1,keep,0.037,1.0
+OF-B,2,keep,0.028,1.0
+OF-B,3,keep,0.025,1.0
+OF-B,4,keep,0.066,0.998
+OF-B,5,keep,0.007,1.0
+OF-B,6,keep,0.018,1.0
+OF-B,7,keep,0.045,1.0
+OF-B,8,keep,0.045,1.0
+OF-B,10,keep,0.014,1.0
+OF-B,11,keep,0.03,1.0
+OF-B,12,keep,0.108,1.0
+OF-B,13,keep,0.104,1.0
+OF-B,14,trim (largest blob of 2),0.027,1.0
+OF-B,N3,add seed at row 282 col 315,0.021,1.0
+OF-B,N4,add seed at row 282 col 343,0.024,1.0
+OF-B,N5,add seed at row 297 col 388,0.027,0.925
+PA-A,1,keep,0.113,1.0
+PA-A,2,keep,0.027,1.0
+PA-A,3,keep,0.056,1.0
+PA-A,4,keep,0.038,1.0
+PA-A,5,keep,0.063,1.0
+PA-A,6,keep,0.07,1.0
+PA-A,7,keep,0.042,1.0
+PA-A,8,keep,0.029,1.0
+PA-A,10,keep,0.031,1.0
+PA-A,11,keep,0.019,1.0
+PA-A,12,keep,0.028,1.0
+PA-B,1,keep,0.049,1.0
+PA-B,2,keep,0.088,1.0
+PA-B,3,keep,0.149,1.0
+PA-B,4,keep,0.044,1.0
+PA-B,5,keep,0.095,1.0
+PA-B,6,keep,0.024,1.0
+PA-B,7,keep,0.155,1.0
+PA-B,8,keep,0.031,1.0
+PA-B,9,keep,0.021,1.0
+PA-B,10,keep,0.055,1.0
+PA-B,11a,split,0.04,1.0
+PA-B,11b,split,0.052,1.0
+PA-B,12,keep,0.025,1.0
+PA-B,13,keep,0.02,1.0
+PA-B,14,keep,0.038,1.0
+PA-B,15,keep,0.029,1.0

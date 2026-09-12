@@ -1,0 +1,13 @@
+===== curated traces: least squares versus EXTRACT T-step =====
+
+Correlation is computed on DETRENDED traces (20 s running median removed),
+so a shared slow drift cannot inflate the agreement.
+
+plane  n              method  r_median    r_min                                          note
+ OF-A 12 joint least squares  0.940730 0.717304                                              
+ OF-B 16 joint least squares       NaN      NaN EXTRACT dropped cells, no comparison possible
+ PA-A 11 joint least squares  0.954994 0.786000                                              
+ PA-B 16 joint least squares  0.959596 0.734849                                              
+
+Worst agreement is r = 0.717. The two estimates are NOT interchangeable;
+report which method produced the traces in any result that uses them.
