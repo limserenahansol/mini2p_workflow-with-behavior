@@ -1,0 +1,73 @@
+===== open field: centre versus corner =====
+cells tested: 36 (usable only: active, single-blob footprint, not oversized)
+imaging 4.6083 Hz, 2000 circular-shift surrogates, minimum shift 10 s
+
+zone occupancy at imaging frames: centre 5.6 %  corner 41.4 %  edge 53.0 %
+
+Statistics. Zone contrast is the centre mean minus the corner mean of the
+detrended z-scored dF/F. Its p-value is two-sided against a circular-shift
+null, which keeps the trace's autocorrelation and the animal's occupancy
+and destroys only the pairing - a t-test across frames would treat each
+frame as independent and is not valid here. Spatial information is the
+Skaggs measure on the rectified trace, one-sided against the same null.
+q-values are Benjamini-Hochberg across the cells tested.
+
+    cell  centre  corner    edge  contr nullSD      p      q   info  q_inf  r_spd  q_spd  pref
+  A#A1    -0.261   0.028   0.005 -0.290  0.239 0.3128 0.5658  0.158 0.6395  0.001 0.9570  none
+  A#A3     0.794  -0.103  -0.002  0.896  0.222 0.0005 0.0045  0.159 0.0720 -0.003 0.9570  centre
+  A#A4     0.283  -0.033  -0.004  0.316  0.149 0.0370 0.1403  0.076 0.3658  0.055 0.2339  none
+  A#A5     0.363  -0.057   0.006  0.420  0.262 0.1009 0.2271  0.151 0.6546  0.061 0.2339  none
+  A#A6     0.588  -0.091   0.010  0.679  0.182 0.0005 0.0045  0.101 0.0180  0.060 0.1739  centre
+  A#A7     0.466  -0.055  -0.006  0.521  0.183 0.0005 0.0045  0.080 0.5331  0.025 0.6666  centre
+  A#A8     0.251  -0.048   0.012  0.300  0.176 0.0915 0.2195  0.102 0.1511  0.087 0.0180  none
+  A#A9    -0.124  -0.024   0.032 -0.100  0.121 0.4483 0.6724  0.060 0.6410 -0.037 0.4828  none
+  A#A11    0.274  -0.042   0.004  0.315  0.142 0.0390 0.1403  0.068 0.5331  0.014 0.7703  none
+  A#A12   -0.126   0.038  -0.016 -0.164  0.179 0.3143 0.5658  0.059 0.6410 -0.068 0.0684  none
+  A#A13    0.069  -0.031   0.017  0.099  0.122 0.3323 0.5697  0.060 0.6410  0.023 0.6888  none
+  A#A14   -0.080   0.002   0.007 -0.082  0.205 0.6627 0.8836  0.053 0.9470 -0.002 0.9570  none
+  A#A15    0.077   0.048  -0.046  0.028  0.151 0.8266 0.9481  0.086 0.1865  0.073 0.0684  none
+  A#A16   -0.520   0.111  -0.033 -0.632  0.193 0.0090 0.0450  0.111 0.1223 -0.072 0.0684  corner
+  A#A17    0.512  -0.026  -0.033  0.539  0.148 0.0005 0.0045  0.080 0.4755  0.044 0.4192  centre
+  A#A18   -0.111  -0.019   0.026 -0.093  0.176 0.5967 0.8262  0.058 0.6546 -0.021 0.7082  none
+  B#B1    -0.096   0.094  -0.063 -0.190  0.205 0.4098 0.6414  0.053 0.8858 -0.041 0.4828  none
+  B#B2    -0.076   0.018  -0.006 -0.095  0.260 0.8591 0.9481  0.212 0.6280 -0.008 0.9570  none
+  B#B3     0.181   0.015  -0.031  0.167  0.126 0.1814 0.3842  0.056 0.6546 -0.015 0.7703  none
+  B#B4    -0.079   0.035  -0.019 -0.114  0.151 0.5197 0.7484  0.053 0.8858 -0.029 0.5881  none
+  B#B5     0.203  -0.037   0.007  0.240  0.173 0.1964 0.3928  0.098 0.1462  0.032 0.5881  none
+  B#B6     0.261   0.001  -0.028  0.261  0.140 0.0545 0.1754  0.055 0.8563  0.017 0.7703  none
+  B#B7     0.007  -0.024   0.018  0.030  0.226 0.9740 0.9740  0.112 0.4755 -0.004 0.9570  none
+  B#B8     0.067  -0.041   0.025  0.108  0.146 0.3723 0.6092  0.067 0.5739 -0.047 0.3498  none
+  B#B9    -0.038  -0.008   0.010 -0.030  0.131 0.7411 0.9481  0.058 0.6410 -0.003 0.9570  none
+  B#B10   -0.022  -0.038   0.032  0.016  0.259 0.8341 0.9481  0.115 0.9170 -0.044 0.4858  none
+  B#B11   -0.023  -0.030   0.026  0.007  0.126 0.8691 0.9481  0.053 0.6546 -0.032 0.5881  none
+  B#B13    0.366  -0.000  -0.038  0.366  0.180 0.0585 0.1754  0.136 0.1511  0.025 0.6666  none
+  B#B14    0.054   0.052  -0.046  0.002  0.191 0.9595 0.9740  0.079 0.5196  0.005 0.9570  none
+  B#B15    0.031  -0.009   0.004  0.040  0.173 0.7996 0.9481  0.077 0.6410  0.014 0.7703  none
+  B#B16    0.492  -0.050  -0.013  0.543  0.200 0.0025 0.0180  0.149 0.1223  0.074 0.0684  centre
+  B#B17    0.318  -0.052   0.007  0.371  0.153 0.0100 0.0450  0.093 0.1259  0.011 0.9272  centre
+  B#B18   -0.332   0.069  -0.019 -0.401  0.222 0.0855 0.2195  0.161 0.0180  0.025 0.6666  none
+  B#B19    0.248  -0.015  -0.014  0.263  0.148 0.0800 0.2195  0.078 0.5196 -0.005 0.9570  none
+  B#B20   -0.392   0.097  -0.035 -0.489  0.187 0.0080 0.0450  0.071 0.5025 -0.026 0.6666  corner
+  B#B21    0.027   0.005  -0.007  0.022  0.117 0.9105 0.9641  0.083 0.1259 -0.019 0.7703  none
+
+VERDICT: 6 centre-preferring, 2 corner-preferring, 28 not selective (q <= 0.05).
+         2 of 36 carry significant spatial information.
+         1 of 36 are significantly speed-correlated.
+         no cell is both zone- and speed-significant, so the zone effects are not speed in disguise.
+
+The k = 2 split the request asked for is the sign of the contrast among the
+cells that pass, which is what is plotted. With this many cells a k-means
+on a one-dimensional index is a threshold, so the threshold is stated
+rather than dressed up as clustering.
+
+Caveats.
+  Centre occupancy is 5.6 %, so the centre mean rests on
+  83 imaging frames against 623 in the corners. A centre effect is
+  therefore much harder to detect than a corner effect, and an absence of
+  centre cells here is weak evidence that none exist.
+  Positions are floor-only, so a body pressed against a wall has its
+  centroid pulled inward. The centre cell of the 3x3 grid starts ~150 px
+  from the wall and the bias is ~20-30 px, so wall frames cannot leak into
+  the centre, but corner/edge boundaries are softer than they look.
+  One session, one animal: this is a description of these cells, not a
+  population result.

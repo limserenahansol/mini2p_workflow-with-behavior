@@ -30,10 +30,12 @@ Full measured QC report, including every number quoted below:
 | 7 | per-cell figures | `plot_curation_on_fov.py`, `plot_cell_by_cell.py`, `plot_cellmap_traces.py` | `<plane>\curated\` |
 | 8 | one time base for imaging and cameras | `split_timestamps.py` | `output_split\timestamps\` |
 | 9 | open-field tracking | `openfield_track.py` | `output_split\tracking\` |
-| 10 | centre versus corner cells | `openfield_place_cells.py` | `output_split\place\` |
-| 11 | match cells across sessions | `match_sessions.py`, `linked_cells_report.py` | `<pain session>\output_split\match\` |
-| 12 | raw Ca / dF/F / z per cell | `pain_cell_traces.py` | `<plane>\curated\pain_traces.*` |
-| 13 | the deck | `make_pipeline_ppt.py` | `CEANTSR1_pipeline_*.pptx` |
+| 10 | match cells across sessions | `match_sessions.py`, audited by `match_audit.py` | `<pain session>\output_split\match\` |
+| 11 | **the 39-cell union — every later step reads this** | `transfer_footprints.py`, loaded by `union_data.py` | `<each session>\output_split\union\plane_*\union_traces.mat` |
+| 12 | centre versus corner cells | `openfield_place_cells.py` | `output_split\place\` |
+| 13 | one row per neuron, both sessions | `linked_cells_report.py` | `<pain session>\output_split\match\` |
+| 14 | raw Ca / dF/F / z per cell | `pain_cell_traces.py` | `<plane>\curated\pain_traces.*` |
+| 15 | the deck | `make_pipeline_ppt.py` | `CEANTSR1_pipeline_*.pptx` |
 
 `compare_curated_traces.py` and `sync_curation_record.py` are checks, not
 steps.
@@ -74,6 +76,46 @@ the figure shows rather than hides.
 occupancy-normalised rate maps with a permissive weight cut, which painted
 colour into bins the mouse never entered. The occupancy mask is now
 re-applied after smoothing.
+
+---
+
+## The 39-cell union is the unit of analysis
+
+Every cross-session question used to be asked of the neurons EXTRACT happened
+to detect *twice*. That is a detection limit, not an anatomical one:
+`match_audit.py` found a soma at the location of **25 of 27** pain cells and
+**20 of 28** open-field cells in the other session's mean image.
+
+`transfer_footprints.py` therefore registers the union of both sessions'
+footprints and solves all of them jointly on **both** movies, so detection has
+to succeed once per neuron instead of twice. Result: **39 neurons** (plane A
+18, plane B 21), each with a trace in both sessions under one shared id, so
+`A1` in the pain session and `A1` in the open field are the same neuron by
+construction. 34 of the 39 sit on a soma in both sessions; 16 were detected
+independently twice; 25 are active in at least one session, 10 in both.
+
+`union_data.py` is the only loader. `usable()` filters on `anat >= 1` image SD
+— a transferred footprint is a hypothesis, and below 1 SD it landed on nothing
+and its trace is background whatever it looks like. It does **not** filter on
+activity: a neuron that was quiet is a valid row, that *is* the measurement.
+
+This changed the answers, which is the point: place coding went from 9 cells
+tested to 36, and from 2 centre / 0 corner to **6 centre / 2 corner**.
+
+Two bugs surfaced on the way, both worth knowing:
+
+- **The audit's own sign error.** `match_audit.py` passed the pain session as
+  `A` and then added the returned shift to the open-field centroids, and so
+  reported 0 pairs where the matcher found 20. `grid_shift(A, B)` compares
+  `A(y)` against `B(y + dy)`, so the shift maps A's coordinates into B's. The
+  matcher was right; the audit was wrong. The convention is now written at the
+  call site.
+- **A shared module RNG made results depend on call order.** Two scripts
+  computing the same circular-shift null disagreed — 2 corner cells in one, 0
+  in the other — because borderline cells at q ≈ 0.046 flipped with the order
+  the surrogates were drawn in. Seeds now come per cell from
+  `hashlib.md5(plane|label|what)`, not `hash()` (which is salted per process),
+  and the two scripts agree exactly.
 
 ---
 
@@ -186,27 +228,50 @@ this label — the stimulus times make that a far more powerful test.
 | curated | 12 | 16 | 11 | 16 |
 | active / silent / SUSPECT | 5 / 7 / 0 | 5 / 9 / 2 | 6 / 4 / 1 | 6 / 10 / 0 |
 
+Union of the two sessions, which is what every cross-session analysis uses:
+
+| | plane A | plane B | both |
+|---|---|---|---|
+| union neurons | 18 | 21 | **39** |
+| on a soma in both sessions | 15 | 19 | 34 |
+| detected independently twice | 5 | 11 | 16 |
+| active in the pain session | 9 | 9 | 18 |
+| active in the open field | 6 | 11 | 17 |
+
 **Open field.** Floor is 454 × 516 px = 11.9 % of the FOV; everything outside
 it is ignored, which matters because "largest dark blob in the frame" tracked
 the dark background for 1632 of 1632 sampled frames. Detection 99.96 % of
 8159 frames. Occupancy: centre 5.6 %, corner 41.4 %, edge 53.0 %.
 
-**Centre versus corner.** 9 usable cells; 2 prefer the centre (A#12 contrast
-+0.900, A#3 +0.520, both q = 0.0022), none prefer the corners. Tested against
-a circular-shift null (2000 surrogates), which keeps the trace's
-autocorrelation and the animal's occupancy — a t-test across frames would
-treat each frame as independent and is not valid for calcium. 0 of 9 are
-speed-correlated, so the zone effects are not speed in disguise. Centre
-occupancy is only 5.6 %, so absence of corner cells is weak evidence.
+**Centre versus corner**, on the 39-cell union: 36 usable cells; **6 prefer
+the centre** (A3 +0.896, A6 +0.679, B16 +0.543, A17 +0.539, A7 +0.521,
+B17 +0.371) and **2 prefer the corners** (A16 −0.632, B20 −0.489), all at
+q ≤ 0.045; 28 are not selective. The per-session curated set gave 2 and 0 from
+9 cells, so most of this was a detection limit, not a biological absence.
+Tested against a circular-shift null (2000 surrogates), which
+keeps the trace's autocorrelation and the animal's occupancy — a t-test across
+frames would treat each frame as independent and is not valid for calcium.
+2 of 36 carry significant spatial information; 1 of 36 is speed-correlated and
+no cell is both, so the zone effects are not speed in disguise. Centre
+occupancy is 5.6 %, so the centre mean rests on 83 imaging frames against 623
+in the corners — a centre effect is the harder one to detect, and few corner
+cells is weak evidence.
 
 **Same neuron across sessions.** Both sessions image the same two depths, and
 each depth matches itself across the two sessions at image correlation
 r ≈ 0.87 against 0.33–0.44 for the wrong depth. Registration is a direct
 correlation search over shifts; phase correlation failed here, returning
-contradictory shifts between depths and no pairs at all. Pairs must be within
-one cell radius **and** agree in footprint shape (r ≥ 0.5), because position
-alone pairs neighbours in a dense plane: 13 of 21 position pairs pass both.
-Both centre-preferring cells could be followed into the pain session.
+contradictory shifts between depths and no pairs at all. For *detection*
+pairs, position alone is not enough in a dense plane, so a pair must also
+agree in footprint shape (r ≥ 0.5): 16 of 22 position pairs pass both, against
+~3 expected by chance. Those 16 plus the 23 cells detected in only one session
+are the 39-neuron union above.
+
+**Zone-selective cells followable into the pain session:** A3 (centre, pain
+active), A6 (centre, active), A17 (centre, active), A16 (corner, active),
+A7 (centre, quiet), B16 (centre, quiet), B20 (corner, quiet). B17 is
+centre-preferring in the open field but its pain footprint sits at 0.23 SD —
+it landed on nothing there, so its pain trace means nothing and it is excluded.
 
 **Ready for event locking.** Every trace carries a time vector on the same
 base as the behaviour cameras, so a scored stimulus time indexes straight into

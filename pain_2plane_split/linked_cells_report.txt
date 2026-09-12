@@ -1,0 +1,58 @@
+===== the same neuron in both sessions =====
+
+39 union neurons, each measured in BOTH sessions; 34 have a footprint that lands on a soma
+in both (anat >= 1 image SD) and can be interpreted.
+
+16 of them were detected independently by EXTRACT in both sessions; the rest got their
+trace by transferring the footprint, which is why every row has both columns.
+
+  plane   uid    found in  2x  anat PA  anat OF      OF      PA  OF place contrast       q
+  A        A3        pain yes     5.99     4.74  active  active    centre   +0.896  0.0045
+  A        A6        pain  no     4.36     3.27   quiet  active    centre   +0.679  0.0045
+  A        A7        pain yes     4.34     3.98  active   quiet    centre   +0.521  0.0045
+  A       A17  open field  no     1.98     2.59  active  active    centre   +0.539  0.0045
+  A       A16  open field  no     3.69     4.38   quiet  active    corner   -0.632  0.0450
+  A        A4        pain  no     3.30     2.69   quiet   quiet      none   +0.316  0.1403
+  A       A11        pain  no     2.58     2.24   quiet   quiet      none   +0.315  0.1403
+  A        A8        pain  no     3.35     2.62   quiet  active      none   +0.300  0.2195
+  A        A5        pain yes     3.79     4.62  active  active      none   +0.420  0.2271
+  A        A1        pain yes    12.51     9.39  active  active      none   -0.290  0.5658
+  A       A12  open field  no     2.71     2.96   quiet   quiet      none   -0.164  0.5658
+  A       A13  open field  no     2.42     1.29   quiet   quiet      none   +0.099  0.5697
+  A        A9        pain  no     3.16     3.20   quiet   quiet      none   -0.100  0.6724
+  A       A18  open field  no     1.97     2.67   quiet  active      none   -0.093  0.8262
+  A       A14  open field  no     0.83     1.41   quiet   quiet      none   -0.082  0.8836
+  A       A15  open field  no     1.83     2.63   quiet   quiet      none   +0.028  0.9481
+  A        A2        pain  no     1.18     0.98   quiet  active not tested                 
+  A       A10        pain yes     0.76     0.79  active   quiet not tested                 
+  B       B16        pain  no     3.90     6.67  active   quiet    centre   +0.543  0.0180
+  B       B17  open field  no     0.23     1.48  active  active    centre   +0.371  0.0450
+  B       B20  open field  no     3.46     8.09  active   quiet    corner   -0.489  0.0450
+  B        B6        pain  no     2.52     2.62   quiet   quiet      none   +0.261  0.1754
+  B       B13        pain  no     4.01     8.11  active  active      none   +0.366  0.1754
+  B       B18  open field  no     3.02    13.45  active   quiet      none   -0.401  0.2195
+  B       B19  open field  no     1.32     2.30   quiet   quiet      none   +0.263  0.2195
+  B        B3        pain yes    11.92    16.16   quiet  active      none   +0.167  0.3842
+  B        B5        pain yes    13.76    25.56  active   quiet      none   +0.240  0.3928
+  B        B8        pain yes     1.44     4.41   quiet   quiet      none   +0.108  0.6092
+  B        B1        pain yes     2.91     3.74   quiet  active      none   -0.190  0.6414
+  B        B4        pain yes     4.39     7.11   quiet   quiet      none   -0.114  0.7484
+  B        B2        pain yes     5.89     4.34  active  active      none   -0.095  0.9481
+  B        B9        pain  no     1.67     1.91   quiet   quiet      none   -0.030  0.9481
+  B       B10        pain yes     5.24    17.77  active  active      none   +0.016  0.9481
+  B       B11        pain yes     3.33     6.00   quiet   quiet      none   +0.007  0.9481
+  B       B15        pain yes     3.21     9.39  active  active      none   +0.040  0.9481
+  B       B21  open field  no     1.55     3.47   quiet   quiet      none   +0.022  0.9641
+  B        B7        pain yes    15.69    30.48  active  active      none   +0.030  0.9740
+  B       B14        pain yes     1.46     3.60  active   quiet      none   +0.002  0.9740
+  B       B12        pain  no     3.50     0.88   quiet  active not tested                 
+
+Zone-selective open-field cells that could be followed into the pain session: A3 (centre, pain active), A6 (centre, pain active), A7 (centre, pain quiet), A17 (centre, pain active), A16 (corner, pain active), B16 (centre, pain quiet), B20 (corner, pain quiet)
+
+Next: once the pain video is scored, add pin-prick and heat response columns
+to linked_cells.csv. The pairing above is what lets a single neuron carry
+both answers.
+
+Caveat. 'Same neuron' rests on a footprint correlation of 0.5 in a dense
+plane, and the residual positions are 2-7 px against an 8 px radius. Treat the
+pairs as probable, not certain, and check the linked figure before using one.

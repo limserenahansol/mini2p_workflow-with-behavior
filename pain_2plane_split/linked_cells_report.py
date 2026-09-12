@@ -7,20 +7,21 @@ the pin-prick / heat columns drop straight into the same table and the
 question becomes "was THIS neuron corner-preferring and pin-prick
 responsive".
 
-WHAT COUNTS AS THE SAME NEURON
-  Two gates, both measured (match_sessions.py):
-    position   within one cell radius (8 px) after registering the two
-               sessions' mean images. Registration is a direct correlation
-               search, not phase correlation - phase correlation gave
-               contradictory shifts between the two depths and found no
-               pairs at all.
-    shape      footprint correlation >= 0.5 after alignment. Position alone
-               pairs cells that merely sit near each other, and these planes
-               are dense, so this is the gate that decides.
+WHAT A ROW IS
+  One of the 39 UNION neurons (transfer_footprints.py), which already has a
+  trace in both sessions - so there is nothing left to pair here. This
+  replaces an earlier version that joined matched detection pairs; that
+  capped the table at the 16 neurons EXTRACT found twice, and after both
+  downstream analyses moved to union ids it silently matched nothing and
+  reported that no zone-selective cell could be followed.
 
-  Measured registration: plane A r = +0.872 at (dy +9, dx -17),
-  plane B r = +0.876 at (dy -11, dx -7); each depth matches itself across
-  sessions at r ~ 0.87 against 0.33-0.44 for the wrong depth.
+WHAT TO CHECK BEFORE BELIEVING A ROW
+  anat, per session: the footprint's brightness over its surrounding ring in
+  that session's mean image, in image SDs. Below 1 the transfer landed on
+  nothing there and the trace is background whatever it looks like. 34 of 39
+  clear 1 SD in both sessions; B17 is the cautionary case - centre-
+  preferring in the open field, but pain_anat 0.23, so its pain trace means
+  nothing.
 
 OUTPUT  ->  <pain session>\\output_split\\match\\
   linked_cells.csv        one row per pair, with both sessions' verdicts
@@ -47,8 +48,9 @@ FS = 4.6054
 
 
 def dff(root, plane):
-    m = loadmat(os.path.join(root, f"plane_{plane}", "curated",
-                             "curated_dff.mat"))
+    """Union dF/F for this session, keyed by the shared uid."""
+    m = loadmat(os.path.join(root, "union", f"plane_{plane}",
+                             "union_traces.mat"))
     labels = [str(np.asarray(x).ravel()[0]).strip()
               for x in np.asarray(m["labels"]).ravel()]
     return {lab: np.asarray(m["dff"], float)[i]
@@ -68,71 +70,81 @@ def qc(root, plane):
 
 
 def main():
-    mp = os.path.join(PA, "match", "match_cells.csv")
-    if not os.path.exists(mp):
-        raise SystemExit("run match_sessions.py first")
-    M = pd.read_csv(mp, dtype={"of_cell": str, "pa_cell": str})
+    """One row per UNION neuron, joined to the open-field zone result.
+
+    This used to join match_cells.csv (per-session labels) to the place
+    result. Both downstream analyses moved to the 39-cell union, whose ids
+    are A1..A18 and B1..B21, so that join silently matched nothing and the
+    report said no zone-selective cell could be followed. It now reads the
+    union directly, where every row already has both sessions by
+    construction and there is nothing to join on position at all.
+    """
+    up = os.path.join(PA, "match", "union_cells.csv")
+    if not os.path.exists(up):
+        raise SystemExit("run transfer_footprints.py first")
+    U = pd.read_csv(up, dtype={"pain_cell": str, "of_cell": str})
     place_p = os.path.join(OF, "place", "place_cells.csv")
     P = pd.read_csv(place_p, dtype={"cell": str}) if os.path.exists(place_p) \
         else pd.DataFrame()
 
     rows = []
-    for _, r in M.iterrows():
-        pl = r["plane"]
-        qo, qp = qc(OF, pl), qc(PA, pl)
+    for _, r in U.iterrows():
         pv, pc, pq = "not tested", np.nan, np.nan
         if len(P):
-            hit = P[(P["plane"] == pl) & (P["cell"] == r["of_cell"])]
+            hit = P[(P["plane"] == r["plane"]) & (P["cell"] == r["uid"])]
             if len(hit):
                 pv = hit.iloc[0]["preference"]
                 pc = float(hit.iloc[0]["contrast"])
                 pq = float(hit.iloc[0]["q_contrast"])
+        on_soma = (r["pain_anat"] >= 1) and (r["openfield_anat"] >= 1)
         rows.append(dict(
-            plane=pl, of_cell=r["of_cell"], pa_cell=r["pa_cell"],
-            residual_px=r["residual_px"], shape_r=r["shape_r"],
-            same_neuron="yes" if r["shape_r"] >= SHAPE_MIN else "position "
-                                                                "only",
-            of_verdict=qo.get(r["of_cell"], ("?", 0))[0],
-            pa_verdict=qp.get(r["pa_cell"], ("?", 0))[0],
-            of_usable=qo.get(r["of_cell"], ("?", 0))[1],
-            pa_usable=qp.get(r["pa_cell"], ("?", 0))[1],
+            plane=r["plane"], uid=r["uid"], source=r["source"],
+            detected_twice="yes" if r["matched"] else "no",
+            pain_anat=r["pain_anat"], of_anat=r["openfield_anat"],
+            same_neuron="yes" if on_soma else "footprint on nothing",
+            of_verdict="active" if r["openfield_active"] else "quiet",
+            pa_verdict="active" if r["pain_active"] else "quiet",
+            of_usable=int(r["openfield_anat"] >= 1),
+            pa_usable=int(r["pain_anat"] >= 1),
             of_place=pv, of_zone_contrast=pc, of_zone_q=pq))
     D = pd.DataFrame(rows).sort_values(
-        ["plane", "shape_r"], ascending=[True, False])
+        ["plane", "of_zone_q"], na_position="last")
     outdir = os.path.join(PA, "match")
     D.to_csv(os.path.join(outdir, "linked_cells.csv"), index=False)
 
     conf = D[D["same_neuron"] == "yes"]
-    both = conf[(conf["of_usable"] == 1) & (conf["pa_usable"] == 1)]
+    both = conf
     L = ["===== the same neuron in both sessions =====",
          "",
-         f"{len(D)} pairs within one cell radius; {len(conf)} also agree in "
-         f"footprint shape (r >= {SHAPE_MIN})",
-         f"and are treated as the same neuron.",
+         f"{len(D)} union neurons, each measured in BOTH sessions; "
+         f"{len(conf)} have a footprint that lands on a soma",
+         f"in both (anat >= 1 image SD) and can be interpreted.",
          "",
-         f"Of those {len(conf)}, {len(both)} are usable in BOTH sessions "
-         f"(active, single-blob footprint,",
-         "not oversized) and so can carry a result from one session to the "
-         "other.",
+         f"{int((D['detected_twice'] == 'yes').sum())} of them were "
+         f"detected independently by EXTRACT in both sessions; the rest "
+         f"got their",
+         "trace by transferring the footprint, which is why every row has "
+         "both columns.",
          "",
-         f"  {'plane':5s} {'OF':>4s} {'PA':>4s} {'res':>5s} {'shape':>6s} "
-         f"{'OF verdict':>11s} {'PA verdict':>11s} {'OF place':>9s} "
-         f"{'contrast':>8s} {'q':>7s}"]
+         f"  {'plane':5s} {'uid':>5s} {'found in':>11s} {'2x':>3s} "
+         f"{'anat PA':>8s} {'anat OF':>8s} {'OF':>7s} {'PA':>7s} "
+         f"{'OF place':>9s} {'contrast':>8s} {'q':>7s}"]
     for _, r in D.iterrows():
         cs = "" if not np.isfinite(r["of_zone_contrast"]) \
             else f"{r['of_zone_contrast']:+8.3f}"
         qs = "" if not np.isfinite(r["of_zone_q"]) \
             else f"{r['of_zone_q']:7.4f}"
-        L.append(f"  {r['plane']:5s} {r['of_cell']:>4s} {r['pa_cell']:>4s} "
-                 f"{r['residual_px']:5.2f} {r['shape_r']:6.3f} "
-                 f"{r['of_verdict']:>11s} {r['pa_verdict']:>11s} "
+        L.append(f"  {r['plane']:5s} {r['uid']:>5s} "
+                 f"{r['source']:>11s} {r['detected_twice']:>3s} "
+                 f"{r['pain_anat']:8.2f} {r['of_anat']:8.2f} "
+                 f"{r['of_verdict']:>7s} {r['pa_verdict']:>7s} "
                  f"{r['of_place']:>9s} {cs:>8s} {qs:>7s}")
     place_hits = conf[conf["of_place"].isin(["centre", "corner"])]
     L += ["",
           (f"Zone-selective open-field cells that could be followed into the "
            f"pain session: "
-           + (", ".join(f"OF {r['plane']}#{r['of_cell']} ({r['of_place']}) "
-                        f"= PA {r['plane']}#{r['pa_cell']}"
+           + (", ".join(f"{r['uid']} ({r['of_place']}, pain "
+                        f"{r['pa_verdict']})"
                         for _, r in place_hits.iterrows())
               if len(place_hits) else "none")),
           "",
@@ -166,19 +178,19 @@ def main():
                            gridspec_kw=dict(width_ratios=[1, 2]),
                            squeeze=False)
     for i, (_, r) in enumerate(conf.iterrows()):
-        a = dO[r["plane"]][r["of_cell"]]
-        b = dP[r["plane"]][r["pa_cell"]]
+        a = dO[r["plane"]][r["uid"]]
+        b = dP[r["plane"]][r["uid"]]
         ax[i, 0].plot(np.arange(len(a)) / FS, a, lw=.45, color="#B23AA8")
         ax[i, 0].set_xlim(0, len(a) / FS)
-        ax[i, 0].set_ylabel(f"{r['plane']}\nOF#{r['of_cell']}", fontsize=9,
-                            rotation=0, labelpad=26, va="center")
+        ax[i, 0].set_ylabel(f"{r['uid']}\nopen field", fontsize=9,
+                            rotation=0, labelpad=30, va="center")
         ax[i, 1].plot(np.arange(len(b)) / FS, b, lw=.45, color="#1C6E8C")
         ax[i, 1].set_xlim(0, len(b) / FS)
-        ax[i, 1].set_ylabel(f"PA#{r['pa_cell']}", fontsize=9, rotation=0,
+        ax[i, 1].set_ylabel("pain", fontsize=9, rotation=0,
                             labelpad=22, va="center")
         ax[i, 1].text(.004, .93,
-                      f"shape r {r['shape_r']:.2f}, residual "
-                      f"{r['residual_px']:.1f} px  |  OF {r['of_verdict']}"
+                      f"anat PA {r['pain_anat']:.1f} / OF {r['of_anat']:.1f} SD"
+                      f"  |  OF {r['of_verdict']}"
                       f" / place {r['of_place']}  |  PA {r['pa_verdict']}",
                       transform=ax[i, 1].transAxes, va="top", fontsize=8,
                       color="#555555")
@@ -191,8 +203,8 @@ def main():
             ax[i, 1].set_title("pain, 651 s", fontsize=10)
     ax[-1, 0].set_xlabel("time (s)")
     ax[-1, 1].set_xlabel("time (s)")
-    fig.suptitle(f"{n} neurons followed across both sessions "
-                 f"(dF/F; footprint shape r >= {SHAPE_MIN})", fontsize=12)
+    fig.suptitle(f"{n} union neurons measured in both sessions "
+                 f"(dF/F; footprint on a soma in both)", fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, .99])
     p = os.path.join(outdir, "linked_cells.png")
     fig.savefig(p, dpi=140, bbox_inches="tight")

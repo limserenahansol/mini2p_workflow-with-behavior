@@ -45,8 +45,9 @@ import pandas as pd
 
 import openfield_track as oft
 from openfield_place_cells import (MIN_OCC_S, N_BIN, N_SHIFT, SMOOTH_BINS,
-                                   ZONE, behaviour_on_imaging, load_tracking,
-                                   load_traces, shift_null, zone_contrast)
+                                   ZONE, behaviour_on_imaging, cell_seed,
+                                   load_tracking, load_traces, shift_null,
+                                   zone_contrast)
 
 OF = ("D:/20260911_CEANTSR1_65_15_openfield(100_50um)_555mi_"
       "2026-09-11_15-27-52")
@@ -86,7 +87,9 @@ def run(session):
             zz = z[c - 1][valid]
             d = zone_contrast(zz, zv)
             null = shift_null(lambda s: zone_contrast(s, zv), zz, min_shift,
-                              N_SHIFT)
+                              N_SHIFT,
+                              seed=cell_seed(plane, labels[c - 1],
+                                             'contrast'))
             p = float((1 + np.sum(np.abs(null - np.median(null))
                                   >= abs(d - np.median(null))))
                       / (len(null) + 1))

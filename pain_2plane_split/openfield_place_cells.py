@@ -104,44 +104,42 @@ def load_tracking(session):
 
 
 def load_traces(session, plane):
-    """The CURATED cells only, with their labels.
+    """The 39-cell UNION set, so every neuron gets tested here.
 
-    This originally read <plane>\\final_analysis_results.mat and
-    <plane>\\qc_cells\\, i.e. the pre-curation detection - it reported 14
-    cells for a plane that has 12 after curation, and took its usable list
-    from footprints Hansol had discarded. Feeding this analysis is the whole
-    point of the curation, so the source is now curated_dff.mat (demixed
-    dF/F from the raw movie, written by plot_cellmap_traces.py) with labels
-    from curated_labels.csv and verdicts from the curated QC.
+    Two earlier sources were wrong for this analysis and both were changed:
+
+      1  the pre-curation detection - it reported 14 cells for a plane that
+         has 12 after curation, and took its usable list from footprints
+         Hansol had discarded;
+      2  the per-session CURATED set - correct, but it caps the test at the
+         cells EXTRACT detected in THIS session, which was 9 usable cells
+         across both planes.
+
+    The union (transfer_footprints.py) registers both sessions' footprints
+    and solves all of them on this session's movie, so a neuron detected in
+    the pain session is measured here too. 39 neurons, of which 34 land on a
+    soma in both sessions.
+
+    The filter is anatomical, not activity: a neuron that was quiet in the
+    open field is still a valid row - that IS the measurement, and dropping
+    it would bias the place result towards cells that happened to fire.
+    Only transfers that landed on nothing are excluded.
     """
-    cur = os.path.join(session, "output_split", f"plane_{plane}", "curated")
-    f = os.path.join(cur, "curated_dff.mat")
-    if not os.path.exists(f):
-        raise SystemExit(f"{f} missing - run plot_cellmap_traces.py first")
-    from scipy.io import loadmat
-    m = loadmat(f)
-    dff = np.asarray(m["dff"], float)
-    # loadmat returns a MATLAB cell array of char as nested object arrays,
-    # so str() on an element gives "['12']" rather than "12"
-    labels = [str(np.asarray(x).ravel()[0]).strip()
-              for x in np.asarray(m["labels"]).ravel()]
-    S, _dff_mat, shape = load_plane(cur)
-    if S.shape[1] != dff.shape[0] or len(labels) != dff.shape[0]:
-        raise SystemExit(f"plane {plane}: {S.shape[1]} footprints, "
-                         f"{dff.shape[0]} traces, {len(labels)} labels")
-    qc = pd.read_csv(os.path.join(cur, "qc_cells", "qc_cells.csv"))
-    usable = qc.loc[qc["usable"] == 1, "cell"].to_numpy()
-    t = pd.read_csv(os.path.join(session, "output_split", "timestamps",
-                                 "plane_frame_times.csv"))
-    t = t.loc[t["plane"] == plane, "t_s"].to_numpy()
-    if len(t) != dff.shape[1]:
-        raise SystemExit(f"plane {plane}: {dff.shape[1]} trace samples but "
-                         f"{len(t)} frame times")
+    from union_data import load_union, usable as union_usable
+    U = load_union()
+    ses = "openfield" if "openfield" in os.path.basename(session) else "pain"
+    d = U[(ses, plane)]
+    dff = np.asarray(d["dff"], float)
+    labels = d["labels"]
+    usable = union_usable(U, ses, plane) + 1      # 1-based, as used below
     det, _ = detrend(dff)
     z = (det - det.mean(1, keepdims=True)) / det.std(1, keepdims=True)
-    print(f"  plane {plane}: {dff.shape[0]} curated cells, {len(usable)} "
-          f"usable {[labels[i - 1] for i in usable]}")
-    return z, t, usable, S, shape, labels
+    n_src = sum(1 for s in d["source"] if s == "pain")
+    print(f"  plane {plane}: {len(labels)} union cells "
+          f"({n_src} detected in the pain session, "
+          f"{len(labels) - n_src} only here), "
+          f"{len(usable)} on a soma in this session")
+    return z, d["t"], usable, d["S"], d["shape"], labels
 
 
 # ---------------------------------------------------------------- alignment
@@ -190,15 +188,37 @@ def skaggs(r, zi_or_bin, n_states):
     return float(info)
 
 
-def shift_null(fn, z, min_shift, n_shift=N_SHIFT):
-    """Circular shifts of the trace, never smaller than min_shift samples."""
+def shift_null(fn, z, min_shift, n_shift=N_SHIFT, seed=None):
+    """Circular shifts of the trace, never smaller than min_shift samples.
+
+    The seed is derived from the cell, not taken from a shared generator.
+    With a module-level RNG the surrogates depended on how many times the
+    caller had drawn before, so this script (3 draws per cell) and
+    fig3_place.py (1 draw per cell) produced different nulls for the same
+    cell and disagreed on the borderline calls: two corner cells at
+    q = 0.046 appeared in one and not the other. A per-cell seed makes the
+    null reproducible and identical everywhere.
+    """
+    rng = np.random.default_rng(seed) if seed is not None else RNG
     n = len(z)
     out = np.empty(n_shift)
     hi = n - min_shift
     for i in range(n_shift):
-        s = int(RNG.integers(min_shift, hi))
+        s = int(rng.integers(min_shift, hi))
         out[i] = fn(np.roll(z, s))
     return out
+
+
+def cell_seed(plane, label, what):
+    """A stable seed per (cell, statistic), so any script reproduces it.
+
+    hashlib, not hash(): Python salts str hashing per process unless
+    PYTHONHASHSEED is set, so hash() would give a different null on every
+    run - the opposite of the point.
+    """
+    import hashlib
+    h = hashlib.md5(f"{plane}|{label}|{what}".encode()).digest()
+    return int.from_bytes(h[:4], "little")
 
 
 def emp_p_two(null, obs):
@@ -258,17 +278,22 @@ def run(session):
             zv, spv, biv = zi[valid], speed[valid], bidx[valid]
 
             d = zone_contrast(zz, zv)
-            nd = shift_null(lambda s: zone_contrast(s, zv), zz, min_shift)
+            sd_ = dict(plane=plane, label=labels[c - 1])
+            nd = shift_null(lambda s: zone_contrast(s, zv), zz, min_shift,
+                            seed=cell_seed(plane, labels[c - 1],
+                                           "contrast"))
             p_d = emp_p_two(nd, d)
 
             info = skaggs(zz, biv, N_BIN ** 2)
             ni = shift_null(lambda s: skaggs(s, biv, N_BIN ** 2), zz,
-                            min_shift)
+                            min_shift,
+                            seed=cell_seed(plane, labels[c - 1], "info"))
             p_i = emp_p_one(ni, info)
 
             r_sp = float(np.corrcoef(zz, spv)[0, 1])
             ns = shift_null(lambda s: float(np.corrcoef(s, spv)[0, 1]), zz,
-                            min_shift)
+                            min_shift,
+                            seed=cell_seed(plane, labels[c - 1], "speed"))
             p_sp = emp_p_two(ns, r_sp)
 
             rows.append(dict(

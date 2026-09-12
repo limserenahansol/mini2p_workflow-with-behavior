@@ -243,6 +243,7 @@ def run_plane(plane, L):
              f"neurons, each measured in BOTH sessions")
 
     out = {}
+    roots = {"pain": PA, "openfield": OF}
     for tag, root, S_, obj in (("pain", PA, Spa, p),
                                ("openfield", OF, Sof, o)):
         C = make_controls(S_, (hh, w), N_CTRL)
@@ -257,10 +258,36 @@ def run_plane(plane, L):
         an = np.array([anat(obj["mean"], S_[:, i], (hh, w))
                        for i in range(n)])
         out[tag] = dict(F=F[:n], dff=dff[:n], z=z, p=pj, anat=an,
-                        ev=[m["events"] for m in mc])
+                        ev=[m["events"] for m in mc], S=S_)
         L.append(f"   {tag:10s} {n} traces, active "
                  f"{int((pj <= .05).sum())}, anat median {np.nanmedian(an):.2f}"
                  f" SD, below 1 SD: {int(np.nansum(an < 1))}")
+
+        # Write the union per session in the same shape the per-session
+        # scripts already read, so every downstream analysis can switch to
+        # the 39-cell set without each one re-deriving the transfer.
+        tdir = os.path.join(roots[tag], "timestamps")
+        tf = pd.read_csv(os.path.join(tdir, "plane_frame_times.csv"))
+        t_s = tf.loc[tf["plane"] == plane, "t_s"].to_numpy()
+        if len(t_s) != F.shape[1]:
+            raise SystemExit(f"{tag} plane {plane}: {F.shape[1]} samples "
+                             f"but {len(t_s)} frame times")
+        udir = os.path.join(roots[tag], "union", f"plane_{plane}")
+        os.makedirs(udir, exist_ok=True)
+        uid = [f"{plane}{i + 1}" for i in range(n)]
+        savemat(os.path.join(udir, "union_traces.mat"),
+                dict(labels=np.array(uid, dtype=object),
+                     verdict=np.array(["active" if q <= .05 else "quiet"
+                                       for q in pj], dtype=object),
+                     t_s=t_s, F_raw=F[:n], dff=dff[:n], z=z,
+                     anat_sd=an, p_active=pj,
+                     spatial_weights=S_.reshape(hh, w, n),
+                     source=np.array([r["source"] for r in rows],
+                                     dtype=object),
+                     matched=np.array([bool(r["matched"]) for r in rows]),
+                     fs_hz=1.0 / np.median(np.diff(t_s)),
+                     note="union of both sessions' footprints, registered "
+                          "and solved jointly on this session's movie"))
     for i, r in enumerate(rows):
         for tag in ("pain", "openfield"):
             r[f"{tag}_anat"] = round(float(out[tag]["anat"][i]), 3)

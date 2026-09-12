@@ -50,13 +50,22 @@ VCOL = {"active": "#1C6E8C", "silent": "#B8860B", "SUSPECT": "#C1272D",
 
 
 def traces(root, plane):
-    m = loadmat(os.path.join(root, f"plane_{plane}", "curated",
-                             "pain_traces.mat"))
+    """The UNION set for this session, keyed by the shared uid.
+
+    This used to read the per-session curated traces, which meant a row
+    existed in only one column whenever EXTRACT had not detected that
+    neuron twice - 26 of 39 rows were half empty. The union measures every
+    neuron in both sessions, so every row now has both columns.
+    """
+    m = loadmat(os.path.join(root, "union", f"plane_{plane}",
+                             "union_traces.mat"))
     lab = [str(np.asarray(x).ravel()[0]).strip()
            for x in np.asarray(m["labels"]).ravel()]
     ver = [str(np.asarray(x).ravel()[0]).strip()
            for x in np.asarray(m["verdict"]).ravel()]
+    anat = np.asarray(m["anat_sd"]).ravel()
     return dict(labels=lab, verdict=dict(zip(lab, ver)),
+                anat=dict(zip(lab, anat)),
                 t=np.asarray(m["t_s"]).ravel(),
                 rawF={l: np.asarray(m["F_raw"])[i]
                       for i, l in enumerate(lab)},
@@ -65,16 +74,24 @@ def traces(root, plane):
 
 
 def footprints(root, plane):
-    cur = os.path.join(root, f"plane_{plane}", "curated")
-    with h5py.File(os.path.join(cur, "final_analysis_results.mat"), "r") as h:
-        S3 = np.array(h["output"]["spatial_weights"])
+    """UNION footprints, already in this session's own coordinate frame.
+
+    The per-session curated footprints are labelled 1, 2, N3 ... while the
+    rows are now union uids A1, A2 ..., so reading the curated set here
+    would index by the wrong key. The union file carries the registered
+    footprints per session, so no shift has to be applied when drawing.
+    """
+    m = loadmat(os.path.join(root, "union", f"plane_{plane}",
+                             "union_traces.mat"))
+    S3 = np.asarray(m["spatial_weights"])
+    hh, w, k = S3.shape
+    S = S3.reshape(hh * w, k).astype(np.float32)
+    lab = [str(np.asarray(x).ravel()[0]).strip()
+           for x in np.asarray(m["labels"]).ravel()]
+    with h5py.File(os.path.join(root, f"plane_{plane}", "curated",
+                                "final_analysis_results.mat"), "r") as h:
         mx = np.array(h["output"]["info"]["max_image"]).T
-    k, w, hh = S3.shape
-    S = S3.transpose(0, 2, 1).reshape(k, hh * w).T.astype(np.float32)
-    lb = pd.read_csv(os.path.join(cur, "curated_labels.csv"),
-                     dtype={"label": str})
-    lb = lb[lb["index"] > 0].sort_values("index")
-    return S, (hh, w), lb["label"].tolist(), mx
+    return S, (hh, w), lab, mx
 
 
 def contours(col, shape):
@@ -94,49 +111,34 @@ def centroid(col, shape):
 
 
 def build_table():
-    M = pd.read_csv(os.path.join(PA, "match", "match_cells.csv"),
-                    dtype={"of_cell": str, "pa_cell": str})
+    """One row per UNION neuron: 39 rows, both columns always filled."""
+    U = pd.read_csv(os.path.join(PA, "match", "union_cells.csv"),
+                    dtype={"pain_cell": str, "of_cell": str})
     pl = os.path.join(OF, "place", "fig3_place_cells.csv")
     P = pd.read_csv(pl, dtype={"label": str}) if os.path.exists(pl) \
         else pd.DataFrame()
     rows = []
     for plane in ("A", "B"):
         tp, to = traces(PA, plane), traces(OF, plane)
-        mm = M[(M["plane"] == plane) & (M["shape_r"] >= SHAPE_MIN)]
-        mm = mm.sort_values("shape_r", ascending=False)
-        used_p, used_o = set(), set()
-        n = 0
-        for _, r in mm.iterrows():
-            n += 1
-            used_p.add(r["pa_cell"])
-            used_o.add(r["of_cell"])
-            rows.append(dict(uid=f"{plane}{n}", plane=plane,
-                             pa=r["pa_cell"], of=r["of_cell"],
-                             shape_r=round(float(r["shape_r"]), 3),
-                             residual=round(float(r["residual_px"]), 2),
-                             link="matched"))
-        for l in tp["labels"]:
-            if l not in used_p:
-                n += 1
-                rows.append(dict(uid=f"{plane}{n}", plane=plane, pa=l,
-                                 of=None, shape_r=np.nan, residual=np.nan,
-                                 link="pain only"))
-        for l in to["labels"]:
-            if l not in used_o:
-                n += 1
-                rows.append(dict(uid=f"{plane}{n}", plane=plane, pa=None,
-                                 of=l, shape_r=np.nan, residual=np.nan,
-                                 link="open field only"))
+        sub = U[U["plane"] == plane]
+        for uid in tp["labels"]:
+            r = sub[sub["uid"] == uid]
+            r = r.iloc[0] if len(r) else None
+            rows.append(dict(
+                uid=uid, plane=plane, pa=uid, of=uid,
+                link=("matched" if (r is not None and bool(r["matched"]))
+                      else (f"found in {r['source']} only"
+                            if r is not None else "?")),
+                source=r["source"] if r is not None else "?",
+                pa_anat=round(float(tp["anat"].get(uid, np.nan)), 2),
+                of_anat=round(float(to["anat"].get(uid, np.nan)), 2),
+                pa_verdict=tp["verdict"].get(uid, "-"),
+                of_verdict=to["verdict"].get(uid, "-")))
     D = pd.DataFrame(rows)
-    D["pa_verdict"] = [traces(PA, r["plane"])["verdict"].get(r["pa"], "-")
-                       if r["pa"] else "-" for _, r in D.iterrows()]
-    D["of_verdict"] = [traces(OF, r["plane"])["verdict"].get(r["of"], "-")
-                       if r["of"] else "-" for _, r in D.iterrows()]
     if len(P):
         pref, con, qq = [], [], []
         for _, r in D.iterrows():
-            h = P[(P["plane"] == r["plane"]) & (P["label"] == r["of"])] \
-                if r["of"] else P.iloc[0:0]
+            h = P[(P["plane"] == r["plane"]) & (P["label"] == r["uid"])]
             pref.append(h.iloc[0]["pref"] if len(h) else "not tested")
             con.append(float(h.iloc[0]["contrast"]) if len(h) else np.nan)
             qq.append(float(h.iloc[0]["q"]) if len(h) else np.nan)
@@ -158,12 +160,14 @@ def draw(D, kind, ylab, outdir):
     for jj, plane in enumerate(("A", "B")):
         Sp, shape, lp, mxp = footprints(PA, plane)
         So, _, lo_, _ = footprints(OF, plane)
+        # union footprints are already in each session's own frame, so no
+        # shift is applied when drawing them
+        sh = (0, 0)
         hh, w = shape
         a = fig.add_subplot(top[0, jj])
         lo, hi = np.percentile(mxp, [2, 99.7])
         a.imshow(mxp, cmap="gray", vmin=lo, vmax=hi)
         sub = D[(D["plane"] == plane)]
-        sh = {"A": (9, -17), "B": (-11, -7)}[plane]
         for _, r in sub.iterrows():
             if r["pa"]:
                 i = lp.index(r["pa"])
@@ -214,11 +218,15 @@ def draw(D, kind, ylab, outdir):
                        color=VCOL.get(v, "#555555"))
                 a.set_xlim(0, t[-1])
                 a.set_ylim(-med_span * .6, med_span * .6)
-                a.text(.002, 1.06, f"{ses} #{lab}  {v}", fontsize=8,
+                an = r[f"{key}_anat"]
+                warn = "   footprint on nothing here" if an < 1 else ""
+                a.text(.002, 1.06,
+                       f"{ses}  {v}   anat {an:.1f} SD{warn}", fontsize=8,
                        transform=a.transAxes, va="bottom",
-                       color=VCOL.get(v, "#555555"))
+                       color="#C1272D" if an < 1
+                       else VCOL.get(v, "#555555"))
             else:
-                a.text(.5, .5, f"not detected in the {ses} session",
+                a.text(.5, .5, f"no trace in the {ses} session",
                        ha="center", va="center", fontsize=8.5,
                        color="#BBBBBB", transform=a.transAxes)
                 a.set_xticks([]), a.set_yticks([])
@@ -227,7 +235,7 @@ def draw(D, kind, ylab, outdir):
                 # height and "A1 / r 0.95 / CENTRE" ran into the row below
                 bits = [r["uid"]]
                 if r["link"] == "matched":
-                    bits.append(f"r{r['shape_r']:.2f}")
+                    bits.append("2x")
                 if isinstance(r.get("of_place"), str) and \
                         r["of_place"] in ("centre", "corner"):
                     bits.append(r["of_place"][:3].upper())
@@ -254,36 +262,42 @@ def draw(D, kind, ylab, outdir):
                   .isin(["centre", "corner"]))] if "of_place" in D \
         else D.iloc[0:0]
     legend = (
-        f"WHAT A ROW IS.  One unified cell id per plane. Matched pairs come "
-        f"first, best footprint agreement first, then cells seen only in the "
-        f"pain session, then only in the open field. So row A1 is one neuron "
-        f"in both columns - EXTRACT's own numbering is not comparable across "
-        f"sessions: same-numbered cells sat a median of 197 px (plane A) and "
-        f"145 px (plane B) apart, 18-25 cell radii.\n"
-        f"HOW A PAIR IS DECIDED.  The two sessions' mean images are "
-        f"registered by a direct correlation search over shifts (plane A "
-        f"dy +9 dx -17, r = +0.872; plane B dy -11 dx -7, r = +0.876). Each "
-        f"depth matches ITSELF across sessions at r ~ 0.87 against 0.33-0.44 "
-        f"for the wrong depth, so the same optical planes really were imaged "
-        f"29 min apart. Phase correlation was tried first and failed - it "
-        f"gave contradictory shifts between depths and found no pairs. A "
-        f"pair must then be within one cell radius (8 px) AND agree in "
-        f"footprint shape at r >= {SHAPE_MIN}: position alone pairs "
-        f"neighbours in a dense plane. {nm} of 21 position pairs pass both.\n"
+        f"WHAT A ROW IS.  One UNION neuron per row, shared id per plane, so "
+        f"A1 in the pain column and A1 in the open-field column are the same "
+        f"neuron by construction. EXTRACT's own numbering is not comparable "
+        f"across sessions: same-numbered cells sat a median of 197 px "
+        f"(plane A) and 145 px (plane B) apart, 18-25 cell radii.\n"
+        f"WHY EVERY ROW HAS BOTH COLUMNS.  Matching detections capped the "
+        f"set at neurons EXTRACT found twice - {nm} of {len(D)} here. But "
+        f"25 of 27 pain cells and 20 of 28 open-field cells sit on a soma in "
+        f"the OTHER session's mean image, so the limit was detection, not "
+        f"anatomy: a neuron that was quiet in one session gives a "
+        f"fluctuation-based detector nothing to find. So the union of both "
+        f"sessions' footprints is registered and solved jointly on BOTH "
+        f"movies (transfer_footprints.py). Registration is a direct "
+        f"correlation search over shifts, then the best of translation, "
+        f"similarity and full affine by residual; each depth matches ITSELF "
+        f"across sessions at r ~ 0.87 against 0.33-0.44 for the wrong "
+        f"depth.\n"
+        f"READ anat BEFORE BELIEVING A ROW.  A transferred footprint is a "
+        f"hypothesis, not a detection. anat is the footprint's brightness "
+        f"over its surrounding ring in that session's mean image, in image "
+        f"SDs; below 1 the transfer landed on nothing and the trace is "
+        f"background. 34 of 39 clear 1 SD in both sessions.\n"
         f"TRACES.  Solved jointly across all footprints on the raw "
-        f"motion-corrected movie (least squares), so an overlapping "
-        f"neighbour does not leak in. {ylab}. All rows share one y scale "
-        f"(+-{med_span * .6:.3g}), so heights are comparable; each trace is "
-        f"median-centred. Colour = the QC verdict in that session: blue "
-        f"active, amber silent, red SUSPECT. Time is seconds on the imaging "
-        f"clock, 0 = plane A frame 1; the two sessions have different "
-        f"durations and are NOT aligned to each other in time - they are "
-        f"separate recordings 29 min apart.\n"
-        f"CENTRE / CORNER labels on the left come from the open-field test "
-        f"(circular-shift null, q <= 0.05). Pain responsiveness is not here "
-        f"yet: it needs the manual scoring, after which pin-prick, heat and "
-        f"behaviour columns drop into the same rows and a single row can "
-        f"carry both answers.")
+        f"motion-corrected movie, so an overlapping neighbour does not leak "
+        f"in. {ylab}. All rows share one y scale (+-{med_span * .6:.3g}) and "
+        f"each trace is median-centred, so heights are comparable. Colour = "
+        f"whether the trace is separable from 200 shape-matched background "
+        f"ROIs in that session (blue yes, amber no). Time is seconds on the "
+        f"imaging clock; the two sessions are separate recordings 29 min "
+        f"apart and are NOT aligned to each other in time.\n"
+        f"CEN / COR on the left come from the open-field zone test on this "
+        f"same union set (circular-shift null, 2000 surrogates, "
+        f"Benjamini-Hochberg q <= 0.05): 6 centre-preferring, 2 "
+        f"corner-preferring of 36 tested. Pain responsiveness needs the "
+        f"manual scoring, after which pin-prick, heat and behaviour columns "
+        f"drop into these same rows.")
     fig.text(.006, .002, legend, fontsize=9, color="#333333", wrap=True,
              va="bottom", linespacing=1.4)
     short = {"z": "z-score", "dff": "dF/F",
