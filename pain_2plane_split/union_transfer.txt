@@ -1,0 +1,49 @@
+===== every neuron measured in both sessions =====
+
+Matching detections caps the set at neurons EXTRACT found twice.
+The audit showed 25 of 27 pain cells and 20 of 28 open-field cells
+have a soma at their location in the OTHER session's mean image, so
+the limit is detection, not anatomy. Here the union of both
+sessions' footprints is registered and extracted from BOTH movies,
+so detection has to succeed once per neuron instead of twice.
+
+==================================================================
+plane A
+==================================================================
+   translation    8 pairs, residual median 3.06 px
+   similarity     8 pairs, residual median 1.97 px
+   affine         7 pairs, residual median 0.88 px
+   image correlation at the translation: +0.8721   -> using similarity
+   8 position pairs, 5 also agree in shape (r >= 0.5)
+   union: 11 pain + 7 open-field-only = 18 neurons, each measured in BOTH sessions
+   pain       18 traces, active 9, anat median 2.94 SD, below 1 SD: 2
+   openfield  18 traces, active 6, anat median 2.68 SD, below 1 SD: 2
+
+==================================================================
+plane B
+==================================================================
+   translation   13 pairs, residual median 2.52 px
+   similarity    13 pairs, residual median 2.00 px
+   affine        14 pairs, residual median 1.06 px
+   image correlation at the translation: +0.8760   -> using affine
+   14 position pairs, 11 also agree in shape (r >= 0.5)
+   union: 16 pain + 5 open-field-only = 21 neurons, each measured in BOTH sessions
+   pain       21 traces, active 9, anat median 3.33 SD, below 1 SD: 1
+   openfield  21 traces, active 11, anat median 6.00 SD, below 1 SD: 1
+
+==================================================================
+SUMMARY
+==================================================================
+  union neurons, each with a trace in both sessions: 39
+    plane A 18, plane B 21
+  detected in both sessions independently (matched): 16
+  footprint lands on a soma (> 1 SD) in BOTH sessions: 34
+  active in both sessions: 10
+  active in at least one: 25
+
+A transferred footprint is a hypothesis, not a detection. Use pain_anat and
+openfield_anat to drop the ones that landed on nothing, and the per-session
+active flags to say where a neuron was firing. Everything is in union_cells.csv.
+
+This is the set to carry the pain responsiveness into once the video is scored:
+every row already has an open-field trace and a pain trace for the same neuron.

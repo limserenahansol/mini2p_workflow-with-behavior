@@ -196,25 +196,37 @@ def run_plane(plane, lines):
     lines.append(f"  after shift: {len(pairs)} pairs, median nearest "
                  f"{np.median(D1.min(1)):.1f} px")
 
+    # Try the full affine as well as the similarity, and keep whichever
+    # leaves the smaller residual. Only fitting the similarity left pairs on
+    # the table: on plane B the affine cut the median residual from 2.00 to
+    # 1.06 px and recovered a 14th pair, and across both planes the
+    # shape-confirmed count went from 13 to 16.
     stage = "translation"
     if len(pairs) >= MIN_FOR_AFFINE:
         src = np.float32([o["cent"][i][::-1] for i, _ in pairs])
         dst = np.float32([p["cent"][j][::-1] for _, j in pairs])
-        M2, inl = cv2.estimateAffinePartial2D(
-            src, dst, method=cv2.RANSAC, ransacReprojThreshold=3.0)
-        if M2 is not None:
+        for nm, fn in (("similarity", cv2.estimateAffinePartial2D),
+                       ("affine", cv2.estimateAffine2D)):
+            M2, inl = fn(src, dst, method=cv2.RANSAC,
+                         ransacReprojThreshold=3.0)
+            if M2 is None:
+                continue
             of_s2 = warp_points(o["cent"], M2)
             pairs2, D2 = assign(of_s2, p["cent"])
-            if len(pairs2) >= len(pairs):
-                ang = np.degrees(np.arctan2(M2[1, 0], M2[0, 0]))
-                sc = float(np.hypot(M2[0, 0], M2[1, 0]))
-                lines.append(f"  similarity fit on {len(pairs)} pairs "
-                             f"({int(inl.sum())} inliers): rotation "
-                             f"{ang:+.2f} deg, scale {sc:.4f}, "
-                             f"shift ({M2[1, 2]:+.2f}, {M2[0, 2]:+.2f})")
-                lines.append(f"  after similarity: {len(pairs2)} pairs, "
-                             f"median nearest {np.median(D2.min(1)):.1f} px")
-                of_s, pairs, D1, M, stage = of_s2, pairs2, D2, M2, "similarity"
+            res_new = np.median([np.hypot(*(of_s2[i] - p["cent"][j]))
+                                 for i, j in pairs2]) if pairs2 else np.inf
+            res_old = np.median([np.hypot(*(of_s[i] - p["cent"][j]))
+                                 for i, j in pairs]) if pairs else np.inf
+            ang = np.degrees(np.arctan2(M2[1, 0], M2[0, 0]))
+            sc = float(np.hypot(M2[0, 0], M2[1, 0]))
+            lines.append(f"  {nm} fit on {len(pairs)} seeds "
+                         f"({int(inl.sum())} inliers): rotation "
+                         f"{ang:+.2f} deg, scale {sc:.4f} -> "
+                         f"{len(pairs2)} pairs, residual median "
+                         f"{res_new:.2f} px")
+            if (len(pairs2), -res_new) >= (len(pairs), -res_old):
+                of_s, pairs, D1, M, stage = of_s2, pairs2, D2, M2, nm
+        lines.append(f"  kept: {stage}")
 
     rows = []
     for i, j in pairs:

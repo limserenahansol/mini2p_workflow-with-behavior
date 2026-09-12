@@ -1,0 +1,116 @@
+===== how many neurons appear in both sessions? =====
+
+match_sessions.py reports 21 position pairs and 13 that also agree
+in footprint shape. This audits that number.
+
+Eyeballing the mean images asks whether the same soma is VISIBLE in both
+sessions. Matching asks whether EXTRACT DETECTED it in both. The second is
+necessarily smaller: EXTRACT only finds cells that fluctuate, about half of
+each plane's detections come out silent, and the sessions are 29 min apart,
+so the active subsets differ. Check 4 measures the first number, checks 1-3
+measure whether the second one is right.
+
+==================================================================
+plane A: open field 12 cells, pain 11 cells
+==================================================================
+
+1  TRANSFORM
+   translation only: (dy +9, dx -17) px, image r = +0.8721
+   +rotation+scale: rotation +0.80 deg, scale 0.9958, from 8 seeds (6 inliers)
+   full affine: rotation +0.50 deg, scale 0.9864, from 8 seeds (7 inliers)
+   translation      ->  8 pairs, residual median 3.06 px, max 5.51; residual vs distance from centre r = -0.27
+   +rotation+scale  ->  8 pairs, residual median 1.97 px, max 6.84; residual vs distance from centre r = -0.68
+   full affine      ->  7 pairs, residual median 0.88 px, max 1.77; residual vs distance from centre r = -0.35
+   -> using translation
+   (a residual that grows with distance from the centre means a missing rotation
+    or a non-rigid component; near zero means translation is enough)
+
+2  THRESHOLD SWEEP  (rows = px tolerance, cols = minimum footprint shape r)
+     tol     0.0    0.3    0.4    0.5    0.6    0.7
+       4       5      5      4      4      4      4
+       6       7      7      6      6      5      4
+       8       7      7      6      6      5      4
+      10       7      7      6      6      5      4
+      12       7      7      6      6      5      4
+      16       8      8      7      7      6      5
+
+3  CHANCE LEVEL  (same cells, correspondence destroyed)
+   rotate 90    -> 0 pairs within 8 px
+   rotate 180   -> 0 pairs within 8 px
+   rotate 270   -> 0 pairs within 8 px
+   random offsets (200 draws) -> median 0, 95th percentile 1 pairs
+   observed at 8 px: 7 pairs, against a chance level of about 1
+
+4  CEILING - is the cell VISIBLE in the other session, detected or not?
+   bar = 95th percentile of the same measure at 400 random placements: 0.8228
+   pain cells with a soma at their spot in the OPEN FIELD mean image: 11 of 11
+   open-field cells with a soma at their spot in the PAIN mean image:  10 of 12
+   These are cells present in both fields. Anything above the matched count is a
+   cell EXTRACT detected in one session only - visible in both, found in one.
+
+==================================================================
+plane B: open field 16 cells, pain 16 cells
+==================================================================
+
+1  TRANSFORM
+   translation only: (dy -11, dx -7) px, image r = +0.8760
+   +rotation+scale: rotation -0.15 deg, scale 1.0077, from 13 seeds (8 inliers)
+   full affine: rotation +1.59 deg, scale 0.9927, from 13 seeds (10 inliers)
+   translation      -> 13 pairs, residual median 2.52 px, max 6.85; residual vs distance from centre r = +0.52
+   +rotation+scale  -> 13 pairs, residual median 2.00 px, max 7.20; residual vs distance from centre r = +0.42
+   full affine      -> 14 pairs, residual median 1.06 px, max 7.77; residual vs distance from centre r = +0.47
+   -> using full affine
+   (a residual that grows with distance from the centre means a missing rotation
+    or a non-rigid component; near zero means translation is enough)
+
+2  THRESHOLD SWEEP  (rows = px tolerance, cols = minimum footprint shape r)
+     tol     0.0    0.3    0.4    0.5    0.6    0.7
+       4      10     10     10     10     10      9
+       6      12     12     10     10     10      9
+       8      13     13     11     11     11      9
+      10      13     13     11     11     11      9
+      12      13     13     11     11     11      9
+      16      13     13     11     11     11      9
+
+3  CHANCE LEVEL  (same cells, correspondence destroyed)
+   rotate 90    -> 0 pairs within 8 px
+   rotate 180   -> 0 pairs within 8 px
+   rotate 270   -> 0 pairs within 8 px
+   random offsets (200 draws) -> median 0, 95th percentile 2 pairs
+   observed at 8 px: 13 pairs, against a chance level of about 2
+
+4  CEILING - is the cell VISIBLE in the other session, detected or not?
+   bar = 95th percentile of the same measure at 400 random placements: 2.1485
+   pain cells with a soma at their spot in the OPEN FIELD mean image: 14 of 16
+   open-field cells with a soma at their spot in the PAIN mean image:  10 of 16
+   These are cells present in both fields. Anything above the matched count is a
+   cell EXTRACT detected in one session only - visible in both, found in one.
+
+==================================================================
+SUMMARY
+==================================================================
+                            plane A    plane B    total
+  open-field cells               12         16       28
+  pain cells                     11         16       27
+  pairs within 8 px               7         13       20
+  and shape r >= 0.5              6         11       17
+  pain cells visible in OF         11         14       25
+  OF cells visible in pain         10         10       20
+  chance level (95th)             1          2        3
+
+ANSWER.  20 pairs sit within one cell radius after registration, against a
+chance level of about 3; 17 of those also agree in footprint shape and are
+the set to treat as the same neuron.
+
+Why it is not larger: the limit is DETECTION, not registration. Check 4 counts
+the cells whose location holds a soma in the other session's mean image - those
+are visible in both fields, but EXTRACT only found them in one, because a
+neuron that was quiet in one session has nothing for a fluctuation-based
+detector to find.
+
+If more cells are wanted in both sessions, the fix is not a looser threshold:
+transfer the footprints instead. Take the union of both sessions' footprints,
+apply the transform, and extract every one of them from BOTH movies. Detection
+then has to succeed only once per neuron, and the same set is measured in both
+sessions by construction. See check 5 in the docstring - not run here because it
+is a pipeline change, not an audit.
