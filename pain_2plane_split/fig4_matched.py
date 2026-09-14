@@ -54,7 +54,7 @@ def traces(root, plane):
 
     This used to read the per-session curated traces, which meant a row
     existed in only one column whenever EXTRACT had not detected that
-    neuron twice - 26 of 39 rows were half empty. The union measures every
+    neuron twice - most rows were half empty. The union measures every
     neuron in both sessions, so every row now has both columns.
     """
     m = loadmat(os.path.join(root, "union", f"plane_{plane}",
@@ -111,7 +111,7 @@ def centroid(col, shape):
 
 
 def build_table():
-    """One row per UNION neuron: 39 rows, both columns always filled."""
+    """One row per UNION neuron: 31 rows, both columns always filled."""
     U = pd.read_csv(os.path.join(PA, "match", "union_cells.csv"),
                     dtype={"pain_cell": str, "of_cell": str})
     pl = os.path.join(OF, "place", "fig3_place_cells.csv")
@@ -257,6 +257,17 @@ def draw(D, kind, ylab, outdir):
         a.set_xlabel("time (s)")
 
     nm = int((D["link"] == "matched").sum())
+    # Derived, not typed. These three sentences went stale the moment the
+    # union shrank, and a legend that disagrees with its own figure is worse
+    # than no legend.
+    n_soma = int(((D["pa_anat"] >= 1) & (D["of_anat"] >= 1)).sum())
+    n_cen = n_cor = n_test = 0
+    pc = os.path.join(OF, "place", "place_cells.csv")
+    if os.path.exists(pc):
+        PL = pd.read_csv(pc)
+        n_cen = int((PL["preference"] == "centre").sum())
+        n_cor = int((PL["preference"] == "corner").sum())
+        n_test = len(PL)
     pl_hit = D[(D["link"] == "matched")
                & (D.get("of_place", pd.Series(dtype=str))
                   .isin(["centre", "corner"]))] if "of_place" in D \
@@ -283,7 +294,7 @@ def draw(D, kind, ylab, outdir):
         f"hypothesis, not a detection. anat is the footprint's brightness "
         f"over its surrounding ring in that session's mean image, in image "
         f"SDs; below 1 the transfer landed on nothing and the trace is "
-        f"background. 34 of 39 clear 1 SD in both sessions.\n"
+        f"background. {n_soma} of {len(D)} clear 1 SD in both sessions.\n"
         f"TRACES.  Solved jointly across all footprints on the raw "
         f"motion-corrected movie, so an overlapping neighbour does not leak "
         f"in. {ylab}. All rows share one y scale (+-{med_span * .6:.3g}) and "
@@ -294,8 +305,9 @@ def draw(D, kind, ylab, outdir):
         f"apart and are NOT aligned to each other in time.\n"
         f"CEN / COR on the left come from the open-field zone test on this "
         f"same union set (circular-shift null, 2000 surrogates, "
-        f"Benjamini-Hochberg q <= 0.05): 6 centre-preferring, 2 "
-        f"corner-preferring of 36 tested. Pain responsiveness needs the "
+        f"Benjamini-Hochberg q <= 0.05): {n_cen} centre-preferring, "
+        f"{n_cor} corner-preferring of {n_test} tested. Pain "
+        f"responsiveness needs the "
         f"manual scoring, after which pin-prick, heat and behaviour columns "
         f"drop into these same rows.")
     fig.text(.006, .002, legend, fontsize=9, color="#333333", wrap=True,

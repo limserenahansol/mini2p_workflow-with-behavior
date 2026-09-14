@@ -8,20 +8,18 @@ question becomes "was THIS neuron corner-preferring and pin-prick
 responsive".
 
 WHAT A ROW IS
-  One of the 39 UNION neurons (transfer_footprints.py), which already has a
+  One of the 31 UNION neurons (transfer_footprints.py), which already has a
   trace in both sessions - so there is nothing left to pair here. This
   replaces an earlier version that joined matched detection pairs; that
-  capped the table at the 16 neurons EXTRACT found twice, and after both
+  capped the table at the neurons EXTRACT found twice, and after both
   downstream analyses moved to union ids it silently matched nothing and
   reported that no zone-selective cell could be followed.
 
 WHAT TO CHECK BEFORE BELIEVING A ROW
   anat, per session: the footprint's brightness over its surrounding ring in
   that session's mean image, in image SDs. Below 1 the transfer landed on
-  nothing there and the trace is background whatever it looks like. 34 of 39
-  clear 1 SD in both sessions; B17 is the cautionary case - centre-
-  preferring in the open field, but pain_anat 0.23, so its pain trace means
-  nothing.
+  nothing there and the trace is background whatever it looks like. 26 of 31
+  clear 1 SD in both sessions.
 
 OUTPUT  ->  <pain session>\\output_split\\match\\
   linked_cells.csv        one row per pair, with both sessions' verdicts
@@ -154,12 +152,25 @@ def main():
           "neuron carry",
           "both answers.",
           "",
-          "Caveat. 'Same neuron' rests on a footprint correlation of 0.5 in "
-          "a dense",
-          "plane, and the residual positions are 2-7 px against an 8 px "
-          "radius. Treat the",
-          "pairs as probable, not certain, and check the linked figure before "
-          "using one."]
+          "Caveat. 'Detected twice' rests on a footprint correlation of 0.5 "
+          "in a dense",
+          "plane, with residual positions of 2-7 px against an 8 px radius. "
+          "Treat those",
+          "as probable, not certain, and check the linked figure before "
+          "using one.",
+          "",
+          "Eight further open-field footprints were dropped from the union "
+          "because least",
+          "squares cannot separate them from a cell already in it (footprint "
+          "r 0.53-0.89,",
+          "against 0.167 for the worst pair within a curated session). Their "
+          "locations are",
+          "in union_cells.csv as merged_of. Keeping them split one soma's "
+          "signal into a",
+          "positive and a negative copy: the two 'corner-preferring' cells "
+          "an earlier run",
+          "reported were the negative halves of centre cells (r = -0.82 and "
+          "-0.84)."]
     txt = "\n".join(L)
     print(txt)
     with open(os.path.join(outdir, "linked_cells_report.txt"), "w",

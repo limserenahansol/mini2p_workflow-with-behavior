@@ -19,11 +19,32 @@ WHY THIS EXISTS
   construction.
 
 HOW THE UNION IS BUILT
-  Every pain footprint, plus every open-field footprint that does not match
-  one - so a neuron found twice appears once, with the pain footprint as its
-  canonical shape. Matching for this purpose uses the best of three
-  transforms (translation, similarity, full affine), chosen per plane by the
-  residual it leaves.
+  Every pain footprint, plus every open-field footprint that is both (a) not
+  a shape-confirmed match to one and (b) separable from every footprint
+  already in the union. Matching uses the best of three transforms
+  (translation, similarity, full affine), chosen per plane by the residual
+  it leaves.
+
+  Condition (b) is the one that is easy to forget and expensive to skip.
+  Overlap is measured as the correlation between footprints AS REGRESSORS
+  (gram_matrix), because that is what decides whether least squares can give
+  them separate traces - not the distance between their centres. Calibration:
+  over 361 footprint pairs within a curated session - neurons EXTRACT and
+  curation kept as distinct - the largest correlation is 0.167, so SEP_MAX =
+  0.30 is well clear of anything this data calls two cells.
+
+  Eight open-field footprints failed it (r 0.53-0.89) and are recorded as
+  merged_of instead of added. The first version added them, and the
+  consequences were not subtle: cond(S'S) 49 instead of 5, one cell's raw F
+  negative in every frame of both sessions, and seven pairs whose traces were
+  anti-correlated at r = -0.43 to -0.85 - one soma's signal split into a
+  positive and a negative copy. Two of those negative copies came out as
+  "corner-preferring" cells in the place analysis, which is what a
+  sign-flipped centre cell looks like.
+
+  Where an inseparable open-field footprint also agrees in shape (r >= 0.5),
+  the neuron is marked as detected twice even if it sits further apart than
+  RADIUS: A4/A17 was 12.2 px with shape r 0.86 and 96 % shared support.
 
 WHAT COMES OUT, AND WHAT TO CHECK BEFORE USING IT
   A transferred footprint is a hypothesis, not a detection. Two numbers are
@@ -65,6 +86,7 @@ PA = ("D:/20260911_CEANTSR1_65_15_pain_ 10min_pin_heat_2026-09-11_"
       "15-56-48/output_split")
 RADIUS = 8
 SHAPE_MIN = 0.5
+SEP_MAX = 0.30      # see gram_max: 0.167 is the within-session ceiling
 N_CTRL = 200
 CTRL_MARGIN = 12
 RNG = np.random.default_rng(0)
@@ -95,6 +117,36 @@ def load(root, plane):
 def warp_pts(pts, M):
     p = np.hstack([pts[:, ::-1], np.ones((len(pts), 1))])
     return (M @ p.T).T[:, ::-1]
+
+
+def gram_raw(S):
+    """S'S on sum-normalised footprints - the matrix the T-step inverts."""
+    Wn = S / np.maximum(S.sum(0, keepdims=True), 1e-12)
+    return Wn.T @ Wn
+
+
+def gram_matrix(S):
+    """Off-diagonal correlations between footprints, as regressors.
+
+    This, not centre distance, is what decides whether least squares can
+    give two footprints separate traces: at correlation r the variance
+    inflation is 1 / (1 - r^2), and past ~0.8 the solve starts paying for
+    one soma's transient with a negative copy on its neighbour.
+    """
+    G = gram_raw(S)
+    d = np.sqrt(np.diag(G))
+    R = G / np.outer(d, d)
+    np.fill_diagonal(R, 0.)
+    return R
+
+
+def gram_max(col, S):
+    """Largest footprint correlation between col and the columns of S."""
+    G = gram_raw(np.column_stack([col, S]))
+    d = np.sqrt(np.diag(G))
+    r = G[0, 1:] / (d[0] * d[1:])
+    j = int(np.argmax(r))
+    return float(r[j]), j
 
 
 def assign(a, b, tol):
@@ -226,21 +278,61 @@ def run_plane(plane, L):
         rows.append(dict(plane=plane, source="pain",
                          pain_cell=p["lab"][j],
                          of_cell=o["lab"][mate[0]] if mate else None,
-                         matched=bool(mate)))
+                         matched=bool(mate), merged_of=None, merge_r=np.nan))
+    merged = []
     for i in range(o["S"].shape[1]):
         if i in matched_of:
             continue
         col = o["S"][:, i]
+        wc = cv2.warpAffine(col.reshape(hh, w), M, (w, hh)).ravel()
+        # Can least squares tell this footprint from one already in the
+        # union? Calibration: over 361 footprint pairs WITHIN a curated
+        # session - neurons EXTRACT and curation kept as distinct - the
+        # largest correlation is 0.167, so anything at SEP_MAX or above is
+        # not a second neuron, it is the same soma entering twice. Adding it
+        # makes the solve degenerate and it splits one soma's signal into a
+        # positive and a negative copy.
+        r_sep, j_sep = gram_max(wc, np.stack(Spa, 1))
+        if r_sep >= SEP_MAX:
+            sr = shape_r(wc, Spa[j_sep], (hh, w))
+            same = sr >= SHAPE_MIN
+            merged.append((o["lab"][i], rows[j_sep], r_sep, sr, same))
+            if rows[j_sep]["merged_of"] is None:
+                rows[j_sep]["merged_of"] = o["lab"][i]
+                rows[j_sep]["merge_r"] = r_sep
+            if same and not rows[j_sep]["matched"]:
+                # same place, same shape: one neuron detected twice, just
+                # further apart than RADIUS (A4/A17 is 12.2 px, r = 0.86)
+                rows[j_sep]["matched"] = True
+                rows[j_sep]["of_cell"] = o["lab"][i]
+            continue
         Sof.append(col)
-        Spa.append(cv2.warpAffine(col.reshape(hh, w), M, (w, hh)).ravel())
+        Spa.append(wc)
         rows.append(dict(plane=plane, source="open field", pain_cell=None,
-                         of_cell=o["lab"][i], matched=False))
+                         of_cell=o["lab"][i], matched=False,
+                         merged_of=None, merge_r=np.nan))
     Spa = np.stack(Spa, 1).astype(np.float32)
     Sof = np.stack(Sof, 1).astype(np.float32)
     n = Spa.shape[1]
+    L.append(f"   {len(merged)} further open-field footprints are not "
+             f"separable from a union cell (r >= {SEP_MAX}) and were NOT "
+             f"added:")
+    for lb, row, r_sep, sr, same in merged:
+        L.append(f"      OF {lb:>3s} into {row['source'][:4]} "
+                 f"{row['pain_cell'] or row['of_cell']:>4s}  "
+                 f"footprint r={r_sep:.3f}  shape r={sr:+.3f}  -> "
+                 + ("same neuron, counted as detected twice" if same else
+                    "overlapping detection, identity not claimed"))
     L.append(f"   union: {p['S'].shape[1]} pain + "
-             f"{o['S'].shape[1] - len(matched_of)} open-field-only = {n} "
-             f"neurons, each measured in BOTH sessions")
+             f"{o['S'].shape[1] - len(matched_of) - len(merged)} "
+             f"open-field-only = {n} neurons, each measured in BOTH sessions")
+    R = gram_matrix(Spa)
+    L.append(f"   worst remaining footprint correlation in the union: "
+             f"{R.max():.3f} (within-session ceiling 0.167), "
+             f"cond(StS) = {np.linalg.cond(gram_raw(Spa)):.1f}")
+    if R.max() >= SEP_MAX:
+        raise SystemExit(f"plane {plane}: union still contains an "
+                         f"inseparable pair at r = {R.max():.3f}")
 
     out = {}
     roots = {"pain": PA, "openfield": OF}

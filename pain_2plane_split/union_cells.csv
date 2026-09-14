@@ -1,40 +1,32 @@
-uid,plane,source,pain_cell,of_cell,matched,pain_anat,pain_p,pain_active,pain_events,openfield_anat,openfield_p,openfield_active,openfield_events
-A1,A,pain,1,1,True,12.513,0.01,True,7,9.391,0.0149,True,3
-A2,A,pain,2,,False,1.18,0.0348,True,4,0.984,0.1294,False,1
-A3,A,pain,3,12,True,5.985,0.0348,True,2,4.74,0.0149,True,0
-A4,A,pain,4,,False,3.297,0.0597,False,0,2.694,0.0846,False,0
-A5,A,pain,5,2,True,3.791,0.005,True,15,4.616,0.005,True,11
-A6,A,pain,6,,False,4.361,0.0348,True,1,3.271,0.0846,False,0
-A7,A,pain,7,3,True,4.336,0.0995,False,0,3.981,0.0149,True,0
-A8,A,pain,8,,False,3.349,0.0498,True,1,2.617,0.1194,False,0
-A9,A,pain,10,,False,3.164,0.602,False,0,3.198,0.8706,False,0
-A10,A,pain,11,14,True,0.763,0.2537,False,0,0.786,0.0398,True,0
-A11,A,pain,12,,False,2.577,0.3085,False,0,2.241,0.1144,False,0
-A12,A,open field,,4,False,2.708,0.3184,False,0,2.965,0.1194,False,0
-A13,A,open field,,5,False,2.424,0.408,False,1,1.289,0.6119,False,0
-A14,A,open field,,6,False,0.827,0.1592,False,1,1.407,0.0796,False,0
-A15,A,open field,,8,False,1.826,0.6667,False,0,2.63,0.1592,False,0
-A16,A,open field,,9,False,3.689,0.0299,True,3,4.377,0.0796,False,0
-A17,A,open field,,10,False,1.979,0.0448,True,0,2.59,0.0149,True,0
-A18,A,open field,,11,False,1.974,0.0498,True,1,2.671,0.0796,False,0
-B1,B,pain,1,3,True,2.906,0.005,True,7,3.741,0.4229,False,0
-B2,B,pain,2,8,True,5.891,0.005,True,27,4.341,0.005,True,6
-B3,B,pain,3,11,True,11.916,0.005,True,3,16.16,0.398,False,0
-B4,B,pain,4,N4,True,4.387,0.2985,False,0,7.109,0.0597,False,0
-B5,B,pain,5,4,True,13.759,0.3532,False,0,25.559,0.0199,True,0
-B6,B,pain,6,,False,2.516,0.8955,False,0,2.617,0.2886,False,0
-B7,B,pain,7,13,True,15.693,0.005,True,1,30.479,0.0199,True,1
-B8,B,pain,8,2,True,1.444,0.5771,False,1,4.408,0.2886,False,0
-B9,B,pain,9,,False,1.671,0.8458,False,0,1.911,0.9154,False,0
-B10,B,pain,10,12,True,5.238,0.005,True,3,17.766,0.005,True,3
-B11,B,pain,11a,N5,True,3.328,0.597,False,0,6.004,0.3433,False,0
-B12,B,pain,11b,,False,3.499,0.005,True,2,0.884,0.3433,False,2
-B13,B,pain,12,,False,4.008,0.0348,True,0,8.111,0.0149,True,1
-B14,B,pain,13,6,True,1.456,0.8408,False,0,3.602,0.0199,True,0
-B15,B,pain,14,1,True,3.212,0.005,True,3,9.394,0.01,True,0
-B16,B,pain,15,,False,3.904,0.2935,False,0,6.671,0.0199,True,1
-B17,B,open field,,5,False,0.232,0.0249,True,2,1.484,0.0448,True,0
-B18,B,open field,,7,False,3.019,0.403,False,0,13.453,0.0249,True,0
-B19,B,open field,,10,False,1.317,0.9851,False,0,2.302,0.2886,False,0
-B20,B,open field,,14,False,3.463,0.0796,False,1,8.085,0.0249,True,0
-B21,B,open field,,N3,False,1.547,0.2338,False,1,3.472,0.6318,False,0
+uid,plane,source,pain_cell,of_cell,matched,merged_of,merge_r,pain_anat,pain_p,pain_active,pain_events,openfield_anat,openfield_p,openfield_active,openfield_events
+A1,A,pain,1,1,True,,,12.513,0.0199,True,7,9.391,0.0149,True,3
+A2,A,pain,2,,False,,,1.18,0.0299,True,4,0.984,0.0597,False,1
+A3,A,pain,3,12,True,,,5.985,0.0498,True,3,4.74,0.0149,True,0
+A4,A,pain,4,10,True,10,0.8907525539398193,3.297,0.0249,True,4,2.694,0.0149,True,1
+A5,A,pain,5,2,True,,,3.791,0.005,True,15,4.616,0.005,True,11
+A6,A,pain,6,,False,9,0.8254159092903137,4.361,0.0249,True,2,3.271,0.4776,False,0
+A7,A,pain,7,3,True,,,4.336,0.0945,False,0,3.981,0.0149,True,0
+A8,A,pain,8,,False,4,0.854934573173523,3.349,0.1194,False,1,2.617,0.6965,False,0
+A9,A,pain,10,,False,8,0.6044495105743408,3.164,0.194,False,0,3.198,0.3781,False,0
+A10,A,pain,11,14,True,,,0.763,0.2736,False,0,0.786,0.0199,True,0
+A11,A,pain,12,,False,11,0.6897230744361877,2.577,0.6816,False,0,2.241,0.7363,False,0
+A12,A,open field,,5,False,,,2.424,0.403,False,1,1.289,0.6169,False,0
+A13,A,open field,,6,False,,,0.827,0.1343,False,1,1.407,0.0249,True,0
+B1,B,pain,1,3,True,,,2.906,0.005,True,7,3.741,0.4527,False,0
+B2,B,pain,2,8,True,,,5.891,0.005,True,27,4.341,0.005,True,6
+B3,B,pain,3,11,True,,,11.916,0.005,True,3,16.16,0.4527,False,0
+B4,B,pain,4,N4,True,,,4.387,0.2488,False,0,7.109,0.1144,False,0
+B5,B,pain,5,4,True,,,13.759,0.2736,False,0,25.559,0.0846,False,0
+B6,B,pain,6,,False,,,2.516,0.8955,False,0,2.617,0.2935,False,0
+B7,B,pain,7,13,True,,,15.693,0.0149,True,1,30.479,0.005,True,1
+B8,B,pain,8,2,True,,,1.444,0.5025,False,1,4.408,0.2587,False,0
+B9,B,pain,9,,False,10,0.8272914290428162,1.671,0.1692,False,0,1.911,0.005,True,1
+B10,B,pain,10,12,True,,,5.238,0.0149,True,3,17.766,0.005,True,3
+B11,B,pain,11a,N5,True,,,3.328,0.5174,False,0,6.004,0.3433,False,0
+B12,B,pain,11b,,False,,,3.499,0.005,True,2,0.884,0.3035,False,2
+B13,B,pain,12,,False,7,0.524800181388855,4.008,0.1294,False,1,8.111,0.0348,True,0
+B14,B,pain,13,6,True,,,1.456,0.8159,False,0,3.602,0.0299,True,0
+B15,B,pain,14,1,True,,,3.212,0.005,True,3,9.394,0.005,True,0
+B16,B,pain,15,,False,14,0.8449741005897522,3.904,0.6318,False,0,6.671,0.0348,True,1
+B17,B,open field,,5,False,,,0.232,0.0249,True,2,1.484,0.0846,False,0
+B18,B,open field,,N3,False,,,1.547,0.1692,False,1,3.472,0.602,False,0

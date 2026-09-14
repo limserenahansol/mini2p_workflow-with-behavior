@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 
+import numpy as np
 import pandas as pd
 from PIL import Image
 from pptx import Presentation
@@ -36,6 +37,47 @@ W, H = Inches(13.333), Inches(7.5)
 INK, DIM = RGBColor(0x1A, 0x1A, 0x1A), RGBColor(0x66, 0x66, 0x66)
 ACC, BAD, GOOD = (RGBColor(0x1C, 0x6E, 0x8C), RGBColor(0xA6, 0x3A, 0x3A),
                   RGBColor(0x2E, 0x7D, 0x5B))
+
+
+def facts():
+    """Result numbers read off the result files, never typed.
+
+    The place and matching slides carried numbers from three different runs
+    at once after the union was rebuilt. Anything countable is counted here
+    so a slide cannot disagree with the CSV it describes.
+    """
+    import pandas as pd
+    f = {}
+    u = os.path.join(PA, "match", "union_cells.csv")
+    if os.path.exists(u):
+        U = pd.read_csv(u)
+        f["U"] = U
+        f["n_union"] = len(U)
+        f["n_matched"] = int(U["matched"].sum())
+        f["n_soma"] = int(((U["pain_anat"] >= 1)
+                           & (U["openfield_anat"] >= 1)).sum())
+        f["n_merged"] = int(U["merged_of"].notna().sum()) \
+            if "merged_of" in U else 0
+        f["per_plane"] = {p: int((U["plane"] == p).sum())
+                          for p in ("A", "B")}
+    p = os.path.join(OF, "place", "place_cells.csv")
+    if os.path.exists(p):
+        P = pd.read_csv(p).sort_values("q_contrast")
+        f["P"] = P
+        f["n_test"] = len(P)
+        f["n_cen"] = int((P["preference"] == "centre").sum())
+        f["n_cor"] = int((P["preference"] == "corner").sum())
+        f["n_spd"] = int((P["q_speed"] <= .05).sum())
+        f["cen_ids"] = ", ".join(P.loc[P["preference"] == "centre", "cell"])
+        f["cor_ids"] = ", ".join(P.loc[P["preference"] == "corner",
+                                       "cell"]) or "none"
+    lp = os.path.join(PA, "match", "linked_cells.csv")
+    if os.path.exists(lp):
+        f["L"] = pd.read_csv(lp)
+    return f
+
+
+F = facts()
 
 
 def blank(prs):
@@ -519,7 +561,9 @@ def build():
     # ---------------------------------------------------- 16-17 place
     s = blank(prs)
     title(s, "Result 2 - centre versus corner neurons",
-          "9 usable cells tested; 2 prefer the centre, 0 prefer the corners")
+          f"{F['n_test']} usable union cells tested; {F['n_cen']} prefer the "
+          f"centre ({F['cen_ids']}), {F['n_cor']} prefer the corners "
+          f"({F['cor_ids']})")
     picture(s, os.path.join(OF, "place", "place_summary.png"), Inches(.4),
             Inches(1.3), Inches(12.5), Inches(2.5))
     text(s,
@@ -533,22 +577,27 @@ def build():
          "each frame as\n"
          "             independent and is not valid for calcium. 2000 "
          "surrogates, minimum shift\n"
-         "             10 s. q-values are Benjamini-Hochberg across the 9 "
-         "cells.\n"
-         "Speed        reported per cell with its own shift test, because a "
-         "\"centre cell\" could\n"
-         "             just be a speed cell. 0 of 9 are speed-significant, "
-         "so the zone effects\n"
-         "             are not speed in disguise.",
+         f"             10 s. q-values are Benjamini-Hochberg across the "
+         f"{F['n_test']} cells.\n"
+         f"Speed        reported per cell with its own shift test, because a "
+         f"\"centre cell\" could\n"
+         f"             just be a speed cell. {F['n_spd']} of "
+         f"{F['n_test']} is speed-significant and no cell is\n"
+         f"             both, so the zone effects are not speed in disguise.",
          Inches(.45), Inches(3.95), Inches(8.1), Inches(2.9), size=11)
-    table(s, [
-        ["cell", "contrast", "q", "preference"],
-        ["A#12", "+0.900", "0.0022", "centre"],
-        ["A#3", "+0.520", "0.0022", "centre"],
-        ["B#10", "+0.295", "0.1364", "none"],
-        ["A#2", "+0.373", "0.3632", "none"],
-        ["other 5", "-0.29 to +0.03", "> 0.5", "none"],
-    ], Inches(8.8), Inches(4.0), Inches(4.0), Inches(2.0), size=12)
+    _P = F["P"]
+    _rows = [["cell", "contrast", "q", "preference"]]
+    for _, r in _P.head(4).iterrows():
+        _rows.append([str(r["cell"]), f"{r['contrast']:+.3f}",
+                      f"{r['q_contrast']:.4f}", r["preference"]])
+    _rest = _P.iloc[4:]
+    if len(_rest):
+        _rows.append([f"other {len(_rest)}",
+                      f"{_rest['contrast'].min():+.2f} to "
+                      f"{_rest['contrast'].max():+.2f}",
+                      f"> {_rest['q_contrast'].min():.2f}", "none"])
+    table(s, _rows, Inches(8.8), Inches(4.0), Inches(4.0), Inches(2.0),
+          size=12)
     text(s, "Centre occupancy is only 5.6 % (83 imaging frames against 623 "
             "in the corners), so a centre effect is much harder to detect "
             "than a corner one - absence of corner cells is weak evidence.",
@@ -561,9 +610,9 @@ def build():
         prs, "Result 2 - occupancy-normalised rate maps",
         "mean z-scored dF/F per spatial bin; white = under 0.5 s dwell",
         os.path.join(OF, "place", "place_ratemaps.png"),
-        note="A#12 and A#3 are the two with a red centre. The maps are "
-             "divided by occupancy, so the centre is not just brighter for "
-             "being visited less.",
+        note=f"The centre-preferring cells ({F['cen_ids']}) are the ones "
+             f"with a red middle bin. The maps are divided by occupancy, so "
+             f"the centre is not just brighter for being visited less.",
         pathline=r"<session>\output_split\place\place_ratemaps.png",
         box=(1.2, 1.25, 10.9, 5.2))
 
@@ -580,9 +629,10 @@ def build():
         ["image correlation there", "+0.872", "+0.876"],
         ["same depth, wrong session", "-", "-"],
         ["against the OTHER depth", "+0.328", "+0.435"],
-        ["pairs within 8 px", "8 of 11", "13 of 16"],
-        ["median residual", "1.98 px", "2.00 px"],
-        ["footprint shape r >= 0.5", "5 of 8", "8 of 13"],
+        ["pairs within 8 px", "8 of 11", "14 of 16"],
+        ["median residual", "1.98 px", "1.06 px"],
+        ["footprint shape r >= 0.5", "5 of 8", "11 of 14"],
+        ["+ inseparable, same shape", "1", "0"],
     ], Inches(.5), Inches(4.05), Inches(5.9), Inches(2.6), size=11.5)
     text(s,
          "Each depth matches ITSELF across the two sessions at r ~ 0.87, "
@@ -592,8 +642,10 @@ def build():
          "Two gates, because position alone is not enough in a dense plane:\n"
          "  position   within one cell radius (8 px) after registration\n"
          "  shape      footprint correlation >= 0.5 after alignment\n"
-         "13 of 21 position pairs pass both and are treated as the same "
-         "neuron.\n\n"
+         f"16 of 22 position pairs pass both; one more pair agrees in shape "
+         f"at 12 px\n"
+         f"and is added by the separability check, for "
+         f"{F['n_matched']} neurons detected twice.\n\n"
          "Phase correlation was tried first and failed: it returned "
          "contradictory shifts\n"
          "between the depths (0 px for B, -21.7 px for A) and found no pairs "
@@ -610,32 +662,99 @@ def build():
 
     s = blank(prs)
     title(s, "Result 3 - the join that makes the question askable",
-          "13 neurons followed across both sessions; 4 usable in both")
+          f"{F['n_union']} union neurons, each measured in BOTH sessions; "
+          f"{F['n_soma']} on a soma in both, {F['n_matched']} detected twice")
     picture(s, os.path.join(PA, "match", "linked_cells.png"), Inches(.35),
             Inches(1.25), Inches(7.6), Inches(5.4), crop_frac=0.55)
-    table(s, [
-        ["open field", "place", "contrast", "q", "-> pain", "shape r",
-         "pain"],
-        ["A#12", "centre", "+0.900", "0.0022", "A#3", "0.953", "active"],
-        ["A#3", "centre", "+0.520", "0.0022", "A#7", "0.890", "silent"],
-        ["A#2", "none", "+0.373", "0.3632", "A#5", "0.719", "active"],
-        ["A#1", "none", "-0.293", "0.5325", "A#1", "0.696", "active"],
-        ["B#13", "none", "+0.030", "0.9635", "B#7", "0.746", "active"],
-    ], Inches(8.2), Inches(1.4), Inches(4.7), Inches(2.2), size=10.5)
+    _L = F["L"]
+    _rows = [["cell", "OF place", "contrast", "q", "anat PA", "OF", "pain"]]
+    for _, r in _L.head(5).iterrows():
+        _rows.append([r["uid"], r["of_place"],
+                      "" if not np.isfinite(r["of_zone_contrast"])
+                      else f"{r['of_zone_contrast']:+.3f}",
+                      "" if not np.isfinite(r["of_zone_q"])
+                      else f"{r['of_zone_q']:.4f}",
+                      f"{r['pain_anat']:.1f}", r["of_verdict"],
+                      r["pa_verdict"]])
+    table(s, _rows, Inches(8.2), Inches(1.4), Inches(4.7), Inches(2.4),
+          size=10)
+    _hits = ", ".join(f"{r['uid']} ({r['of_place']}, pain {r['pa_verdict']})"
+                      for _, r in _L.iterrows()
+                      if r["of_place"] in ("centre", "corner"))
     text(s,
-         "Both centre-preferring cells could be followed into the pain\n"
-         "session. A#12 - the strongly centre-preferring one - is A#3 there\n"
-         "and is ACTIVE, so once the video is scored the question becomes\n"
-         "directly answerable:\n\n"
-         "   was the neuron that preferred the exposed centre also\n"
-         "   pin-prick responsive?\n\n"
-         "Caveat: \"same neuron\" rests on a footprint correlation of 0.5 in a\n"
-         "dense plane, with residuals of 2-7 px against an 8 px radius.\n"
-         "Treat the pairs as probable, not certain.",
-         Inches(8.2), Inches(3.8), Inches(4.7), Inches(2.9), size=11.5)
+         f"Every row has both sessions by construction, so there is no\n"
+         f"pairing left to trust here - only the anat columns, which say\n"
+         f"whether the footprint landed on a soma in that session.\n\n"
+         f"Zone-selective cells followable into the pain session:\n"
+         f"   {_hits}\n\n"
+         f"so once the video is scored the question becomes directly\n"
+         f"answerable: was the neuron that preferred the exposed centre\n"
+         f"also pin-prick responsive?\n\n"
+         f"Caveat: \"detected twice\" rests on a footprint correlation of "
+         f"0.5\n"
+         f"in a dense plane, with residuals of 2-7 px against an 8 px\n"
+         f"radius. Treat those as probable, not certain.",
+         Inches(8.2), Inches(3.95), Inches(4.7), Inches(2.9), size=11)
     path_line(s, r"linked_cells_report.py  ->  "
                  r"<pain session>\output_split\match\linked_cells.csv , "
                  r"linked_cells.png")
+
+    # --------------------------------------------- Result 3 QC, the bug
+    s = blank(prs)
+    title(s, "Result 3 QC - the union was built wrong, and what it cost",
+          "Reported because it changed the answer: two \"corner cells\" "
+          "were an artefact")
+    text(s,
+         "What was wrong\n"
+         "   The union took every pain footprint plus every open-field "
+         "footprint that was not a shape-confirmed match.\n"
+         "   An open-field footprint can sit ON TOP of a pain footprint and "
+         "still fail the shape test, so the same soma\n"
+         "   entered the design matrix twice - 8 times across the two "
+         "planes.\n\n"
+         "Why it matters\n"
+         "   Traces come from one joint least-squares solve. Two "
+         "near-identical footprints give it no way to choose, so\n"
+         "   it pays for the soma's transient with a positive trace on one "
+         "copy and a negative trace on the other.\n"
+         "   Measured by re-running the solve both ways: 7 of the 8 pairs "
+         "came out anti-correlated at r = -0.25 to -0.83,\n"
+         "   one cell's raw F was negative in every frame of both sessions, "
+         "and cond(S'S) was 49 instead of 5.\n\n"
+         "What it cost\n"
+         "   The 6 centre / 2 corner result of the earlier run becomes "
+         f"{F['n_cen']} centre / {F['n_cor']} corner. Both \"corner\" cells "
+         "were the\n"
+         "   negative halves of centre cells (r = -0.82 and -0.84); centre "
+         "minus corner is negative for a sign-flipped\n"
+         "   centre cell by construction. The two surviving centre cells are "
+         "the same two, with the same contrasts,\n"
+         "   that the per-session analysis found before the union existed - "
+         "which is the reassuring part.\n\n"
+         "How it is caught now\n"
+         "   Overlap is measured between footprints AS REGRESSORS, which is "
+         "what decides whether least squares can\n"
+         "   separate them, not the distance between centres. Over 361 "
+         "footprint pairs within a curated session the\n"
+         "   worst pair of distinct neurons reaches 0.167, so the cut at "
+         "0.30 is calibrated rather than chosen, and\n"
+         "   transfer_footprints.py now refuses to save a union that still "
+         "contains an inseparable pair.",
+         Inches(.45), Inches(1.3), Inches(12.5), Inches(5.4), size=11.5)
+    path_line(s, r"transfer_footprints.py , fig5_separability.py  ->  "
+                 r"<pain session>\output_split\match\fig5_separability.png , "
+                 r"fig5_dropped_footprints.csv")
+
+    fig_slide(
+        prs, "Result 3 QC - shown, zoomed out first",
+        "the whole field with kept and dropped footprints, then one pair "
+        "close up, the two traces the bad solve gives it, and the "
+        "calibration",
+        os.path.join(PA, "match", "fig5_separability.png"),
+        note="Green = kept in the union, red dashed = dropped for "
+             "separability and folded into the green cell it overlaps.",
+        pathline=r"<pain session>\output_split\match\fig5_separability.png",
+        box=(.5, 1.3, 12.3, 5.1))
 
     # ---------------------------------------------------- 20-21 pain traces
     fig_slide(

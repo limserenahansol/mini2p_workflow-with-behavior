@@ -41,6 +41,41 @@ ACC = RGBColor(0x1C, 0x6E, 0x8C)
 GOOD = RGBColor(0x2E, 0x7D, 0x5B)
 
 
+def facts():
+    """Read the result numbers off the result files.
+
+    Typed numbers in slide text went stale the moment an analysis was re-run
+    - this deck claimed 13 followed neurons and 2 centre cells from two
+    different vintages at the same time. Anything countable is counted here.
+    """
+    import pandas as pd
+    f = {}
+    u = os.path.join(PA, "match", "union_cells.csv")
+    if os.path.exists(u):
+        U = pd.read_csv(u)
+        f["n_union"] = len(U)
+        f["n_matched"] = int(U["matched"].sum())
+        f["n_soma"] = int(((U["pain_anat"] >= 1)
+                           & (U["openfield_anat"] >= 1)).sum())
+        f["per_plane"] = ", ".join(
+            f"plane {p} {int((U['plane'] == p).sum())}" for p in ("A", "B"))
+        f["n_merged"] = int(U["merged_of"].notna().sum()) \
+            if "merged_of" in U else 0
+    p = os.path.join(OF, "place", "place_cells.csv")
+    if os.path.exists(p):
+        P = pd.read_csv(p)
+        f["n_test"] = len(P)
+        f["n_cen"] = int((P["preference"] == "centre").sum())
+        f["n_cor"] = int((P["preference"] == "corner").sum())
+        f["cen_ids"] = ", ".join(P.loc[P["preference"] == "centre", "cell"])
+        f["cor_ids"] = ", ".join(P.loc[P["preference"] == "corner", "cell"]) \
+            or "none"
+    return f
+
+
+F = facts()
+
+
 def blank(p):
     return p.slides.add_slide(p.slide_layouts[6])
 
@@ -265,10 +300,10 @@ def main():
          "animal's occupancy exactly, and\n"
          "destroys only the pairing.",
          Inches(.4), Inches(1.45), Inches(12.5), Inches(3.9), size=13.5)
-    text(s, "Result: 2 of 9 prefer the centre (A#3 contrast +0.520, A#12 "
-            "+0.900, both q = 0.0022). None prefer the corners, and 0 of 9 "
-            "are speed-correlated - so the zone effects are not speed in "
-            "disguise.",
+    text(s, f"Result: {F['n_cen']} of {F['n_test']} union cells prefer the "
+            f"centre ({F['cen_ids']}), {F['n_cor']} prefer the corners "
+            f"({F['cor_ids']}). No cell is both zone- and speed-significant, "
+            f"so the zone effects are not speed in disguise.",
          Inches(.4), Inches(5.5), Inches(12.5), Inches(1.0), size=14,
          bold=True, color=GOOD)
     text(s, r"fig3_place.py  ->  <open field>\output_split\place"
@@ -310,9 +345,11 @@ def main():
          "optical planes really were imaged\n"
          "29 minutes apart.",
          Inches(.4), Inches(1.45), Inches(12.5), Inches(4.1), size=13.5)
-    text(s, "Result: 13 of 21 position pairs also agree in shape. Plane A "
-            "5 of 18 unified cells, plane B 8 of 24. Both centre-preferring "
-            "cells could be followed into the pain session.",
+    text(s, f"Result: {F['n_union']} union neurons ({F['per_plane']}), each "
+            f"with a trace in both sessions; {F['n_matched']} of them "
+            f"detected independently twice, {F['n_soma']} on a soma in both. "
+            f"All {F['n_cen']} centre-preferring cells could be followed "
+            f"into the pain session.",
          Inches(.4), Inches(5.65), Inches(12.5), Inches(.9), size=14,
          bold=True, color=GOOD)
     text(s, r"fig4_matched.py  ->  <pain>\output_split\match"
@@ -359,6 +396,60 @@ def main():
     text(s, r"<pain>\output_split\match\ ", Inches(.4), Inches(6.98),
          Inches(12.5), Inches(.4), size=9.5, color=DIM, mono=True)
 
+    # ---------------- set 4 QC: the separability bug ----------------
+    s = blank(prs)
+    text(s, "Set 4 QC - a mistake this deck had in it, and how it was found",
+         Inches(.4), Inches(.22), Inches(12.5), Inches(.5), size=22,
+         bold=True)
+    text(s, "The union was built wrong the first time. Reported here because "
+            "it changed the results.",
+         Inches(.4), Inches(.78), Inches(12.5), Inches(.4), size=14,
+         color=ACC)
+    text(s,
+         "What was wrong\n"
+         "  The union took every pain footprint plus every open-field "
+         "footprint that was not a shape-confirmed\n"
+         "  match. An open-field footprint can sit ON TOP of a pain "
+         "footprint and still fail the shape test, so the\n"
+         "  same soma entered the design matrix twice.\n\n"
+         "Why that is not a small problem\n"
+         "  Traces come from one joint least-squares solve. Two "
+         "near-identical footprints give it no way to choose,\n"
+         "  so it pays for the soma's transient with a positive trace on one "
+         "copy and a negative trace on the other.\n"
+         "  Measured, by re-running the solve both ways: 7 of the 8 pairs "
+         "came out anti-correlated at r = -0.25 to\n"
+         "  -0.83, one cell's raw F was negative in every frame of both "
+         "sessions, and cond(S'S) was 49 instead of 5.\n\n"
+         "What it cost\n"
+         "  The two 'corner-preferring' cells in the earlier version of this "
+         "deck were the negative halves of\n"
+         "  centre-preferring cells (r = -0.82 and -0.84). Centre minus "
+         "corner is negative for a sign-flipped centre\n"
+         "  cell by construction - so they were an artefact of the bug, not "
+         "corner cells.\n\n"
+         "How it is caught now\n"
+         "  Overlap is measured between footprints AS REGRESSORS, which is "
+         "what decides whether least squares can\n"
+         "  separate them - not the distance between centres. Over 361 "
+         "footprint pairs within a curated session\n"
+         "  the worst pair of distinct neurons reaches 0.167, so the cut at "
+         "0.30 is calibrated rather than chosen.\n"
+         "  8 footprints failed it and are recorded as merged_of instead of "
+         "added. transfer_footprints.py now\n"
+         "  refuses to save a union that still contains an inseparable pair.",
+         Inches(.4), Inches(1.32), Inches(12.5), Inches(5.4), size=12.5)
+    text(s, r"transfer_footprints.py , fig5_separability.py", Inches(.4),
+         Inches(6.98), Inches(12.5), Inches(.4), size=9.5, color=DIM,
+         mono=True)
+
+    fig_slide(prs, "Set 4 QC - shown",
+              "Top: the whole field, kept footprints green, dropped red. "
+              "Then one pair close up, the two traces the bad solve produces "
+              "for it, and the calibration.",
+              os.path.join(PA, "match", "fig5_separability.png"),
+              r"<pain>\output_split\match\fig5_separability.png", hbox=5.7)
+
     # ---------------- what is next ----------------
     s = blank(prs)
     text(s, "What is ready, and what is waiting", Inches(.4), Inches(.22),
@@ -369,9 +460,11 @@ def main():
          "curation decisions by verify_curation.py\n"
          "  every trace in three forms - raw F, dF/F, z - on one time base "
          "shared with the behaviour cameras\n"
-         "  13 neurons followed across both sessions\n"
-         "  2 centre-preferring cells, both of them followable into the "
-         "pain session\n\n"
+         f"  {F['n_union']} union neurons measured in BOTH sessions "
+         f"({F['n_matched']} of them detected twice by EXTRACT)\n"
+         f"  {F['n_cen']} centre-preferring and {F['n_cor']} "
+         f"corner-preferring cells of {F['n_test']} tested, all "
+         f"followable into the pain session\n\n"
          "Waiting on the manual scoring\n"
          "  pin-prick / heat / behaviour-responsive classification, "
          "event-locked to the scored times\n"

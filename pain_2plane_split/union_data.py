@@ -1,4 +1,4 @@
-"""union_data.py  -  the canonical 39-cell set, for every downstream analysis.
+"""union_data.py  -  the canonical 31-cell set, for every downstream analysis.
 
 WHY EVERYTHING SHOULD READ THIS
   Per-session curated sets cap any cross-session analysis at the neurons
@@ -7,10 +7,20 @@ WHY EVERYTHING SHOULD READ THIS
   cells sit on a soma in the OTHER session's mean image.
 
   transfer_footprints.py therefore registers the union of both sessions'
-  footprints and solves all of them jointly on BOTH movies. 39 neurons
-  (plane A 18, plane B 21) then have a trace in each session, with shared
-  ids A1..A18 and B1..B21 - so "A1 in the pain session" and "A1 in the open
+  footprints and solves all of them jointly on BOTH movies. 31 neurons
+  (plane A 13, plane B 18) then have a trace in each session, with shared
+  ids A1..A13 and B1..B18 - so "A1 in the pain session" and "A1 in the open
   field" are the same neuron by construction.
+
+  The union is not simply both sets stacked. Eight open-field footprints sat
+  on top of a cell already in it, closer than least squares can separate
+  (footprint correlation 0.53-0.89, against 0.167 for the worst pair within
+  a curated session), so they are recorded in union_cells.csv as merged_of
+  and not added. Keeping them made the solve degenerate: one soma's signal
+  came out as a positive trace on one copy and a negative trace on the
+  other (trace r down to -0.85, one cell's raw F negative in every frame),
+  which manufactured two "corner-preferring" cells that were nothing but
+  the sign-flipped halves of centre cells.
 
   This module is the single place that loads it, so no analysis re-derives
   the transfer and they cannot drift apart.
@@ -19,7 +29,10 @@ WHAT A ROW CARRIES
   uid            shared id, e.g. A1
   plane          A or B
   source         which session detected it (pain, or open field)
-  matched        was it detected independently in both (16 of 39)
+  matched        was it detected independently in both (17 of 31)
+  merged_of      an open-field footprint that overlapped this cell too
+                 closely to be given its own trace, so it was folded in
+                 here. Blank for most cells.
   <ses>_anat     footprint brightness over its ring in that session's mean
                  image, in image SDs. Below 1 means the transfer landed on
                  nothing there - drop those before interpreting.

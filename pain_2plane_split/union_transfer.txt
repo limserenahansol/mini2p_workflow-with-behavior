@@ -15,9 +15,16 @@ plane A
    affine         7 pairs, residual median 0.88 px
    image correlation at the translation: +0.8721   -> using similarity
    8 position pairs, 5 also agree in shape (r >= 0.5)
-   union: 11 pain + 7 open-field-only = 18 neurons, each measured in BOTH sessions
-   pain       18 traces, active 9, anat median 2.94 SD, below 1 SD: 2
-   openfield  18 traces, active 6, anat median 2.68 SD, below 1 SD: 2
+   5 further open-field footprints are not separable from a union cell (r >= 0.3) and were NOT added:
+      OF   4 into pain    8  footprint r=0.855  shape r=+0.462  -> overlapping detection, identity not claimed
+      OF   8 into pain   10  footprint r=0.604  shape r=-0.219  -> overlapping detection, identity not claimed
+      OF   9 into pain    6  footprint r=0.825  shape r=+0.390  -> overlapping detection, identity not claimed
+      OF  10 into pain    4  footprint r=0.891  shape r=+0.860  -> same neuron, counted as detected twice
+      OF  11 into pain   12  footprint r=0.690  shape r=+0.011  -> overlapping detection, identity not claimed
+   union: 11 pain + 2 open-field-only = 13 neurons, each measured in BOTH sessions
+   worst remaining footprint correlation in the union: 0.000 (within-session ceiling 0.167), cond(StS) = 4.9
+   pain       13 traces, active 6, anat median 3.30 SD, below 1 SD: 2
+   openfield  13 traces, active 7, anat median 2.69 SD, below 1 SD: 2
 
 ==================================================================
 plane B
@@ -27,19 +34,24 @@ plane B
    affine        14 pairs, residual median 1.06 px
    image correlation at the translation: +0.8760   -> using affine
    14 position pairs, 11 also agree in shape (r >= 0.5)
-   union: 16 pain + 5 open-field-only = 21 neurons, each measured in BOTH sessions
-   pain       21 traces, active 9, anat median 3.33 SD, below 1 SD: 1
-   openfield  21 traces, active 11, anat median 6.00 SD, below 1 SD: 1
+   3 further open-field footprints are not separable from a union cell (r >= 0.3) and were NOT added:
+      OF   7 into pain   12  footprint r=0.525  shape r=-0.251  -> overlapping detection, identity not claimed
+      OF  10 into pain    9  footprint r=0.827  shape r=+0.390  -> overlapping detection, identity not claimed
+      OF  14 into pain   15  footprint r=0.845  shape r=+0.337  -> overlapping detection, identity not claimed
+   union: 16 pain + 2 open-field-only = 18 neurons, each measured in BOTH sessions
+   worst remaining footprint correlation in the union: 0.002 (within-session ceiling 0.167), cond(StS) = 7.1
+   pain       18 traces, active 8, anat median 3.41 SD, below 1 SD: 1
+   openfield  18 traces, active 8, anat median 5.21 SD, below 1 SD: 1
 
 ==================================================================
 SUMMARY
 ==================================================================
-  union neurons, each with a trace in both sessions: 39
-    plane A 18, plane B 21
-  detected in both sessions independently (matched): 16
-  footprint lands on a soma (> 1 SD) in BOTH sessions: 34
-  active in both sessions: 10
-  active in at least one: 25
+  union neurons, each with a trace in both sessions: 31
+    plane A 13, plane B 18
+  detected in both sessions independently (matched): 17
+  footprint lands on a soma (> 1 SD) in BOTH sessions: 26
+  active in both sessions: 8
+  active in at least one: 21
 
 A transferred footprint is a hypothesis, not a detection. Use pain_anat and
 openfield_anat to drop the ones that landed on nothing, and the per-session
