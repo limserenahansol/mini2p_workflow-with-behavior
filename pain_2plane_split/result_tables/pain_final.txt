@@ -1,0 +1,72 @@
+===== FINAL pain classification =====
+
+31 cells, 28 with a footprint on a soma in this session.
+Exploratory FDR, q <= 0.20, across those 28 cells within each test.
+
+This supersedes every earlier pain classification. Those disagreed with each other because
+they asked a question this session cannot answer - see pain_final.py for the audit. The three
+tiers below are what the data does support.
+
+TIER 1  STIMULATION-MODULATED
+  activity during the 10 s after any of the 87 deliveries, against the quiet time within +-60 s
+  UP    2  A1 (+0.41), A4 (+0.32)
+  DOWN  0  -
+
+TIER 2b  BEHAVIOUR-LINKED
+  escape episodes inside vs outside - only 18 imaging frames inside, so a hint at best
+  UP    6  A12 (+0.75), B7 (+1.12), B13 (+0.72), B14 (+0.66), B15 (+0.94), B16 (+0.65)
+  DOWN  0  -
+
+WITHDRAWN  MODALITY-SELECTIVE (pin versus heat)
+  Not determinable on this session. Pin and heat were given in separate BLOCKS -
+  pin 13-204 s and 519-586 s, heat 269-518 s, with ZERO pin deliveries inside the heat
+  block - so 'pin versus heat' is also 'early versus middle'. The label-permutation
+  version flagged 14 of 28 cells at effect sizes of 0.05-0.13 z, which is what a slow
+  drift looks like, and there is no overlap window to restrict it to. Columns kept in
+  the CSV as t2_* and not used.
+
+  pin and heat separately, TIER 1 - shown to make the point that they are NOT separable:
+    pin    UP 2 A4, A11   DOWN 0 -
+    heat   UP 2 A1, B12   DOWN 5 A11, B5, B7, B14, B16
+    These two lists come from the same epochs and cannot be attributed to the modality.
+    TIER 2 is the test that can. Read TIER 2 for 'pin versus heat'.
+
+  every cell:
+   cell  anat  T1 any      q  T2 pin-heat      q  T3 esc      q  final
+     A1  12.5   +0.41  0.007        -0.22  0.030   -0.11  0.861  stim-UP
+     A2   1.2   +0.16  0.297        -0.01  0.901   -0.20  0.793  not modulated
+     A3   6.0   +0.15  0.413        -0.06  0.251   +0.22  0.793  not modulated
+     A4   3.3   +0.32  0.007        -0.05  0.498   -0.29  0.671  stim-UP
+     A5   3.8   +0.13  0.458        -0.03  0.817   +0.65  0.298  not modulated
+     A6   4.4   -0.03  0.924        +0.05  0.105   -0.12  0.821  not modulated
+     A7   4.3   +0.09  0.421        +0.07  0.105   -0.28  0.607  not modulated
+     A8   3.4   +0.04  0.808        +0.10  0.062   -0.03  0.927  not modulated
+     A9   3.2   +0.14  0.297        +0.06  0.251   +0.11  0.858  not modulated
+    A10   0.8   +0.02    nan        -0.01    nan   +1.12    nan  not interpretable
+    A11   2.6   +0.06  0.421        +0.13  0.014   +0.30  0.587  not modulated
+    A12   2.4   +0.08  0.395        -0.00  0.905   +0.75  0.084  escape-UP
+    A13   0.8   +0.07    nan        +0.04    nan   +0.78    nan  not interpretable
+     B1   2.9   -0.01  0.945        +0.07  0.529   +0.64  0.252  not modulated
+     B2   5.9   +0.22  0.421        -0.35  0.034   +0.17  0.861  not modulated
+     B3  11.9   -0.11  0.580        -0.01  0.790   +0.38  0.587  not modulated
+     B4   4.4   -0.00  0.950        -0.10  0.030   -0.27  0.593  not modulated
+     B5  13.8   +0.03  0.808        +0.13  0.018   +0.20  0.766  not modulated
+     B6   2.5   -0.03  0.744        +0.10  0.014   +0.14  0.818  not modulated
+     B7  15.7   -0.20  0.297        +0.12  0.034   +1.12  0.014  escape-UP
+     B8   1.4   +0.06  0.421        -0.04  0.276   -0.03  0.927  not modulated
+     B9   1.7   -0.02  0.829        +0.05  0.276   +0.54  0.242  not modulated
+    B10   5.2   -0.15  0.297        +0.01  0.984   +0.28  0.671  not modulated
+    B11   3.3   +0.02  0.840        +0.09  0.030   +0.45  0.298  not modulated
+    B12   3.5   +0.12  0.297        -0.16  0.014   -0.50  0.314  not modulated
+    B13   4.0   +0.13  0.297        -0.02  0.901   +0.72  0.149  escape-UP
+    B14   1.5   +0.01  0.930        +0.06  0.035   +0.66  0.075  escape-UP
+    B15   3.2   -0.07  0.546        -0.08  0.105   +0.94  0.075  escape-UP
+    B16   3.9   -0.05  0.546        +0.04  0.229   +0.65  0.132  escape-UP
+    B17   0.2   -0.05    nan        +0.02    nan   +2.02    nan  not interpretable
+    B18   1.6   +0.09  0.429        +0.02  0.790   -0.09  0.858  not modulated
+
+NOT CLAIMED. The number of cells that 'respond to pin' or 'respond to heat' as individual
+deliveries. Every version of that test gave a different list (0, 6, 7, 8 cells, sharing only
+A9 between the two most defensible versions), because with deliveries 3.2 s apart the answer is
+set by the window and not by the neurons. A session with pin pricks 15-20 s apart would settle
+it; this one cannot.

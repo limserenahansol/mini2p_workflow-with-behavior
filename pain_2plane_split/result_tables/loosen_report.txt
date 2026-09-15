@@ -1,0 +1,99 @@
+===== the same tests at every threshold =====
+
+28 interpretable cells. Nothing is recomputed - these are the p and q values the
+strict analysis already wrote.
+
+The price of loosening, stated once: at an UNCORRECTED p <= 0.05, chance alone gives
+28 x 0.05 = 1.4 cells per test. Across 8 tests that is about 11 false positives in the
+table below. A loose hit is a candidate for the next animal, not a result.
+
+  test                 q<=0.05   q<=0.10   q<=0.20   p<=0.05   p<=0.01
+  pin                        6         7         8         8         6
+  heat                       6         8        14        10         6
+  paw_withdrawal             9        12        14        12         8
+  flinch                     9        10        10        10         8
+  escape                     1         1         1         6         1
+  pin_epoch                  2         2         2         4         2
+  heat_epoch                 4         4         5         5         4
+  escape_in                  4         6         6         6         4
+
+  who appears, per level (UP in the first list, DOWN in the second):
+    pin
+      q<=0.05   n=6   UP A1, A2, A4, A9, B12, B13  
+      q<=0.10   n=7   UP A1, A2, A4, A9, B8, B12, B13  
+      q<=0.20   n=8   UP A1, A2, A4, A9, B8, B12, B13  DOWN B10
+      p<=0.05   n=8   UP A1, A2, A4, A9, B8, B12, B13  DOWN B10      (chance: 1.4)
+      p<=0.01   n=6   UP A1, A2, A4, A9, B12, B13        (chance: 0.3)
+    heat
+      q<=0.05   n=6   UP A1, A2, B2, B12  DOWN B7, B10
+      q<=0.10   n=8   UP A1, A2, B2, B12  DOWN B5, B6, B7, B10
+      q<=0.20   n=14  UP A1, A2, A3, A12, B2, B4, B12, B18  DOWN B5, B6, B7, B10, B14, B15
+      p<=0.05   n=10  UP A1, A2, B2, B12  DOWN B5, B6, B7, B10, B14, B15      (chance: 1.4)
+      p<=0.01   n=6   UP A1, A2, B2, B12  DOWN B7, B10      (chance: 0.3)
+    paw_withdrawal
+      q<=0.05   n=9   UP A1, A2, A4, A9, B2, B4, B12  DOWN B7, B10
+      q<=0.10   n=12  UP A1, A2, A4, A9, B2, B4, B8, B12, B13  DOWN B7, B10, B15
+      q<=0.20   n=14  UP A1, A2, A4, A9, B2, B4, B8, B12, B13, B18  DOWN B3, B7, B10, B15
+      p<=0.05   n=12  UP A1, A2, A4, A9, B2, B4, B8, B12, B13  DOWN B7, B10, B15      (chance: 1.4)
+      p<=0.01   n=8   UP A1, A2, A4, A9, B2, B4, B12  DOWN B7      (chance: 0.3)
+    flinch
+      q<=0.05   n=9   UP A1, A2, A4, B2, B4, B12, B13, B18  DOWN B7
+      q<=0.10   n=10  UP A1, A2, A4, B2, B4, B8, B12, B13, B18  DOWN B7
+      q<=0.20   n=10  UP A1, A2, A4, B2, B4, B8, B12, B13, B18  DOWN B7
+      p<=0.05   n=10  UP A1, A2, A4, B2, B4, B8, B12, B13, B18  DOWN B7      (chance: 1.4)
+      p<=0.01   n=8   UP A1, A2, A4, B2, B4, B12, B13  DOWN B7      (chance: 0.3)
+    escape
+      q<=0.05   n=1   UP B15  
+      q<=0.10   n=1   UP B15  
+      q<=0.20   n=1   UP B15  
+      p<=0.05   n=6   UP A12, B5, B7, B14, B15, B16        (chance: 1.4)
+      p<=0.01   n=1   UP B15        (chance: 0.3)
+    pin_epoch
+      q<=0.05   n=2   UP A1, A4  
+      q<=0.10   n=2   UP A1, A4  
+      q<=0.20   n=2   UP A1, A4  
+      p<=0.05   n=4   UP A1, A4, A9  DOWN B7      (chance: 1.4)
+      p<=0.01   n=2   UP A1, A4        (chance: 0.3)
+    heat_epoch
+      q<=0.05   n=4   UP A1, A4, B12  DOWN B7
+      q<=0.10   n=4   UP A1, A4, B12  DOWN B7
+      q<=0.20   n=5   UP A1, A4, B2, B12  DOWN B7
+      p<=0.05   n=5   UP A1, A4, B2, B12  DOWN B7      (chance: 1.4)
+      p<=0.01   n=4   UP A1, A4, B12  DOWN B7      (chance: 0.3)
+    escape_in
+      q<=0.05   n=4   UP B7, B14, B15, B16  
+      q<=0.10   n=6   UP A12, B7, B13, B14, B15, B16  
+      q<=0.20   n=6   UP A12, B7, B13, B14, B15, B16  
+      p<=0.05   n=6   UP A12, B7, B13, B14, B15, B16        (chance: 1.4)
+      p<=0.01   n=4   UP B7, B14, B15, B16        (chance: 0.3)
+
+  THE GRID at each level: how many of the 15 window x statistic boxes each cell passes.
+  This is the number to read. One box at p <= 0.05 is noise; ten boxes is not, whatever
+  the correction says, because 15 correlated tests of the same cell do not all pass by luck.
+    pin
+      q<=0.05   A1 10UP; B7 0UP/10DN; A2 7UP; A4 5UP; B13 5UP; A9 4UP; B12 4UP; B11 1UP
+      q<=0.10   A1 12UP; B7 0UP/11DN; A2 8UP; A4 8UP; A9 7UP; B13 7UP; B12 6UP; B8 2UP; B10 0UP/1DN; B11 1UP; B16 0UP/1DN; B18 1UP
+      q<=0.20   A1 13UP; B7 0UP/12DN; A2 9UP; A9 9UP; B12 9UP; A4 8UP; B13 7UP; B11 3UP; B18 3UP; B2 2UP; B8 2UP; B15 0UP/2DN; B16 0UP/2DN; A3 1UP; A12 1UP; B1 1UP; B3 0UP/1DN; B6 1UP; B9 1UP; B10 0UP/1DN
+      p<=0.05   A1 15UP; B7 0UP/12DN; B12 10UP; A2 9UP; A9 9UP; A4 8UP; B13 7UP; A8 3UP; B18 3UP; B8 2UP; B11 2UP; B16 0UP/2DN; A3 1UP; A5 0UP/1DN; A7 1UP; B1 1UP; B10 0UP/1DN; B15 0UP/1DN
+      p<=0.01   A1 12UP; B7 0UP/11DN; A2 7UP; A4 6UP; B12 6UP; A9 5UP; B13 5UP; B11 1UP
+    heat
+      q<=0.05   A1 12UP; B12 12UP; B2 4UP; B7 0UP/3DN; A2 2UP; B6 0UP/2DN; B14 0UP/2DN; A4 1UP; B10 0UP/1DN; B13 1UP; B16 0UP/1DN
+      q<=0.10   A1 13UP; B12 13UP; A2 4UP; B2 4UP; B7 0UP/4DN; A4 3UP; B4 3UP; B14 0UP/3DN; B5 0UP/2DN; B6 0UP/2DN; B15 0UP/2DN; B16 0UP/2DN; A11 0UP/1DN; A12 1UP; B10 0UP/1DN; B13 1UP; B18 1UP
+      q<=0.20   B12 15UP; A1 14UP; B2 8UP; A4 7UP; B4 7UP; A2 5UP; B7 0UP/5DN; B6 0UP/4DN; B14 0UP/3DN; B16 0UP/3DN; B18 3UP; A12 2UP; B5 0UP/2DN; B15 0UP/2DN; A9 1UP; A11 0UP/1DN; B10 0UP/1DN; B13 1UP
+      p<=0.05   A1 15UP; B12 15UP; B2 8UP; B4 8UP; A4 6UP; A2 5UP; B6 0UP/5DN; B7 0UP/5DN; A12 3UP; B14 0UP/3DN; A9 2UP; B5 0UP/2DN; B13 2UP; B15 0UP/2DN; B16 0UP/2DN; B18 2UP; A11 0UP/1DN; B10 0UP/1DN
+      p<=0.01   A1 14UP; B12 14UP; B2 4UP; B7 0UP/4DN; A2 3UP; A4 2UP; B6 0UP/2DN; B14 0UP/2DN; B13 1UP; B16 0UP/1DN
+
+  THE JOINT MODEL at each level (all predictors at once):
+    pin              q<=0.05 0   q<=0.10 0   q<=0.20 0   p<=0.05 2 (A4, A7)   p<=0.01 0
+    heat             q<=0.05 0   q<=0.10 0   q<=0.20 0   p<=0.05 2 (A1, A4)   p<=0.01 1 (A1)
+    paw_withdrawal   q<=0.05 0   q<=0.10 0   q<=0.20 4 (A1, A2, A9, B15)   p<=0.05 4 (A1, A2, A9, B15)   p<=0.01 1 (A1)
+    flinch           q<=0.05 0   q<=0.10 0   q<=0.20 1 (B4)   p<=0.05 2 (B4, B16)   p<=0.01 1 (B4)
+    escape           q<=0.05 0   q<=0.10 3 (A12, B7, B14)   q<=0.20 6 (A12, B7, B13, B14, B15, B16)   p<=0.05 6 (A12, B7, B13, B14, B15, B16)   p<=0.01 3 (A12, B7, B14)
+    motion_side      q<=0.05 0   q<=0.10 0   q<=0.20 0   p<=0.05 2 (A5, A7)   p<=0.01 0
+    motion_bottom    q<=0.05 0   q<=0.10 0   q<=0.20 7   p<=0.05 7   p<=0.01 1 (B15)
+
+RECOMMENDATION.  For this data, read the grid consistency column, not a single threshold.
+A1, B12, B7 and A2 pass many boxes at every level and are the candidates worth a second
+animal. Cells that appear only when the threshold is loosened to an uncorrected p <= 0.05
+and only in one or two boxes are what chance produces at that level, and the count above
+says how many of them to expect.

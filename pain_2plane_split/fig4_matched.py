@@ -50,7 +50,7 @@ VCOL = {"active": "#1C6E8C", "silent": "#B8860B", "SUSPECT": "#C1272D",
 
 
 def traces(root, plane):
-    """The UNION set for this session, keyed by the shared uid.
+    """The set of cells measured in both sessions for this session, keyed by the shared uid.
 
     This used to read the per-session curated traces, which meant a row
     existed in only one column whenever EXTRACT had not detected that
@@ -74,7 +74,7 @@ def traces(root, plane):
 
 
 def footprints(root, plane):
-    """UNION footprints, already in this session's own coordinate frame.
+    """footprints, already in this session's own coordinate frame.
 
     The per-session curated footprints are labelled 1, 2, N3 ... while the
     rows are now union uids A1, A2 ..., so reading the curated set here
@@ -111,7 +111,7 @@ def centroid(col, shape):
 
 
 def build_table():
-    """One row per UNION neuron: 31 rows, both columns always filled."""
+    """One row per cell: 31 rows, both columns always filled."""
     U = pd.read_csv(os.path.join(PA, "match", "union_cells.csv"),
                     dtype={"pain_cell": str, "of_cell": str})
     pl = os.path.join(OF, "place", "fig3_place_cells.csv")
@@ -273,7 +273,7 @@ def draw(D, kind, ylab, outdir):
                   .isin(["centre", "corner"]))] if "of_place" in D \
         else D.iloc[0:0]
     legend = (
-        f"WHAT A ROW IS.  One UNION neuron per row, shared id per plane, so "
+        f"WHAT A ROW IS.  One cell per row, shared id per plane, so "
         f"A1 in the pain column and A1 in the open-field column are the same "
         f"neuron by construction. EXTRACT's own numbering is not comparable "
         f"across sessions: same-numbered cells sat a median of 197 px "
@@ -304,7 +304,7 @@ def draw(D, kind, ylab, outdir):
         f"imaging clock; the two sessions are separate recordings 29 min "
         f"apart and are NOT aligned to each other in time.\n"
         f"CEN / COR on the left come from the open-field zone test on this "
-        f"same union set (circular-shift null, 2000 surrogates, "
+        f"same set of cells measured in both sessions (circular-shift null, 2000 surrogates, "
         f"Benjamini-Hochberg q <= 0.05): {n_cen} centre-preferring, "
         f"{n_cor} corner-preferring of {n_test} tested. Pain "
         f"responsiveness needs the "

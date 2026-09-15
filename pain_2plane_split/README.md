@@ -36,6 +36,17 @@ Full measured QC report, including every number quoted below:
 | 13 | one row per neuron, both sessions | `linked_cells_report.py` | `<pain session>\output_split\match\` |
 | 14 | raw Ca / dF/F / z per cell | `pain_cell_traces.py` | `<plane>\curated\pain_traces.*` |
 | 15 | the deck | `make_pipeline_ppt.py` | `CEANTSR1_pipeline_*.pptx` |
+| 16 | human key-press delay, measured | `tap_delay.py` | `<pain>\output_split\events\tap_delay.*` |
+| 17 | mouse movement and freezing from both cameras | `pain_motion.py` | `<pain>\output_split\events\fig9_movement.png` |
+| 18 | per-delivery responses — **withdrawn**, kept for the record | `pain_responsive.py` | `events\responsive_cells.csv` |
+| 19 | 5 windows × 3 statistics × 2 stimuli, plus a joint model | `pain_search.py` | `events\search_grid.csv` |
+| 20 | the same tests at every threshold | `loosen.py` | `events\loosen_ladder.csv` |
+| 21 | **the nine session measurements the argument rests on** | `pain_audit.py` | `events\pain_audit.{txt,csv}` |
+| 22 | **THE final pain classification** | `pain_final.py` | `events\pain_final.{csv,txt}`, `fig29_pain_final.png` |
+| 23 | centre/corner by rate, not count | `of_zone_rates.py`, `of_both_methods.py`, `of_cell_rows.py` | `<open field>\atlas\` |
+| 24 | one row per neuron, both sessions | `cell_atlas.py --level final` | `<session>\output_split\atlas\` |
+| 25 | the result figures | `results_figures.py --level final`, `summary_figures.py --level final` | `<pain>\output_split\results\` |
+| 26 | the two decks | `make_processing_ppt.py`, `make_results_ppt.py` | `CEANTSR1_{processing,results}_*.pptx` |
 
 `compare_curated_traces.py` and `sync_curation_record.py` are checks, not
 steps.
@@ -315,10 +326,103 @@ plus the 14 detected in only one session are the 31-neuron union above.
 active) and A7 (centre, pain quiet) — both of them, with footprints on a soma
 in both sessions (anat 6.0 and 4.3 image SDs in the pain session).
 
-**Ready for event locking.** Every trace carries a time vector on the same
-base as the behaviour cameras, so a scored stimulus time indexes straight into
-it. `lock_events()` in `pain_cell_traces.py` returns
-(cells × events × lag) windows.
+**Event locking.** Every trace carries a time vector on the same base as the
+behaviour cameras, so a scored stimulus time indexes straight into it. Frame
+index ÷ 25 is *not* that time (see pitfall 4); the per-frame `Ref Time`
+mapping is used, which differs by up to 0.78 s by the end of the pain session.
+
+---
+
+## Pain assay — what the session can and cannot answer
+
+Behaviour was scored by hand on 2026-09-14: 53 pin pricks, 34 heat, 76 paw
+withdrawals, 50 flinches, 5 escapes. Licking/biting and guarding were never
+scored, paw attending once.
+
+**Four earlier answers were withdrawn**, and the reason is the session design
+rather than the neurons. `pain_audit.py` recomputes all nine numbers below
+into `pain_audit.txt`, and every slide and figure reads them from
+`pain_audit.csv` — they were typed in from memory once and five of them had
+drifted.
+
+| # | measurement | value | what it rules out |
+|---|---|---|---|
+| 1 | median gap between pin pricks | **3.16 s** | no clean pre-window exists |
+| 1 | pin trials with another delivery inside [–2,0] s | **28 %** | — and 47 % for [–4,–2], 45 % for [–6,–4], 30 % for [–8,–6] |
+| 2 | lag of the population peak | **–1 s**, *before* the key press | a pre-window baseline starts at the top of the response |
+| 3 | pin effect with a [–2,0] s baseline | –0.047 z, p = 0.0044 — **suppression** | … |
+| 3 | the same traces with [–6,–4] s | +0.120 z, p = 0.00088 — **excitation** | the sign was a property of the window |
+| 4 | jittered events landing within 1 s of a real one | **31 %** | an event-jitter null cannot be built |
+| 5 | pin deliveries inside the heat block | **0** (pin 13–204 s and 519–586 s, heat 269–518 s) | "pin vs heat" is also "early vs middle" |
+| 6 | Jaccard overlap of the withdrawal and flinch UP lists | **0.90** (pin–withdrawal 0.70) | pin, withdrawal and flinch are one finding |
+| 7 | a global stimulus-free reference | 41 % of the session but **+97 s late**, covering **11 %** of the pin block | the reference must be local |
+| 8 | pin trials with 6 s of clear time | **12 of 53**, resolving 0.43 z — larger than the biggest effect present (0.41 z) | the clean subset cannot substitute |
+| 9 | escape episodes | 5, 3.9 s = **18 imaging frames** | only escape is testable, and only as a hint |
+
+### The final classification
+
+`pain_final.py`, exploratory FDR q ≤ 0.20 across the 28 interpretable cells,
+circular-shift null (2000 shifts, exact by FFT).
+
+**TIER 1 — stimulation-modulated, robust.** Is the cell different during the
+10 s after a delivery than during the quiet time, referenced to the
+stimulus-free frames **within ±60 s of that same delivery** so a
+session-long drift cancels? **2 UP: A1 (+0.41 z, q = 0.007) and A4 (+0.32 z,
+q = 0.007); 0 DOWN.** The next cell sits at q = 0.30, so these two are not a
+cut through a continuum. It does *not* mean pin-specific — handling, arousal
+and movement are all inside "stimulation going on".
+
+**TIER 2 — modality-selective: WITHDRAWN.** Not determinable here
+(measurement 5). The columns stay in the CSV as `t2_*`, marked invalid; the
+full-session version flagged 14 of 28 cells at 0.05–0.13 z, which is what a
+slow drift looks like.
+
+**TIER 2b — behaviour-linked, weak.** Escape inside versus outside: **6 UP
+(A12, B7, B13, B14, B15, B16)** on 18 imaging frames. Reported with its n so
+it reads as a hint.
+
+**Not claimed:** per-delivery phasic responses to pin or heat, any sentence of
+the form "N cells respond to pin", and pin-versus-heat selectivity. The first
+is set by the window and not by the neurons — 0, 6, 7 and 8 cells across four
+defensible versions, sharing only A9 between the two best.
+
+**What does hold without any window choice:** 26 of 28 cells raise their mean
+dF/F from the 30 s before the first delivery to the 30 s after the last
+(Wilcoxon signed-rank, p < 0.0001). Sensitisation, arousal and slow imaging
+drift would all look like this; separating them needs a no-stimulus control
+session.
+
+**Across the two sessions:** no overlap. Neither centre cell (A3, A7) has a
+pain verdict and neither TIER 1 cell is zone-selective. With 2 centre cells
+and 8 cells carrying a pain verdict out of 28, chance gives no overlap too —
+this describes these cells, not a population.
+
+### Two mistakes worth keeping visible
+
+**One figure, two references.** `fig21_group_means.png` subtracted a [–2,0] s
+pre-window on its five event panels and the stimulus-free time on its two
+epoch panels. Because the population peaks at –1 s, the five left panels read
+"pin: no response (n = 28)" while the two right panels — the correct ones —
+already showed A1 and A4 UP. The headline was read off the wrong panels. Every
+panel now uses the local stimulus-free reference, and the groups are read from
+`pain_final.csv` so a figure cannot disagree with the table.
+
+**A panel that re-smuggled a withdrawn claim.** `fig29_pain_final.png` had a
+middle panel "TIER 1, pin deliveries only" with its own significance
+colouring, which marked A11 — while the verdict list on the same figure called
+A11 not modulated. It now shows pin-only and heat-only side by side with
+*nothing* marked significant, and says so.
+
+### What the next session needs
+
+1. **Space the pin pricks 15–20 s apart.** 20 well-spaced pricks carry more
+   information than the 53 here, because all 20 would have a clean pre-window
+   and resolve about 0.25 z.
+2. **Interleave pin and heat instead of blocking them.** That makes
+   "pin versus heat" a within-time comparison, which is the test TIER 2 wanted.
+3. A no-stimulus control session of the same length, and a 60–90 s
+   stimulus-free block at each end so the reference does not have to be carved
+   out of the gaps.
 
 ---
 

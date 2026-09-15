@@ -70,6 +70,36 @@ def facts():
         f["cen_ids"] = ", ".join(P.loc[P["preference"] == "centre", "cell"])
         f["cor_ids"] = ", ".join(P.loc[P["preference"] == "corner", "cell"]) \
             or "none"
+    e = os.path.join(PA, "events", "event_cells.csv")
+    if os.path.exists(e):
+        E = pd.read_csv(e)
+        ok = E["usable"] == 1
+        f["E"] = E
+        f["n_ok"] = int(ok.sum())
+        for nm in ("pin", "heat"):
+            f[f"{nm}_hits"] = E[ok & (E[f"{nm}_q"] <= .05)]["uid"].tolist()
+            f[f"{nm}_robust"] = E[E[f"{nm}_robust"]]["uid"].tolist()
+            f[f"{nm}_nbouts"] = int(E[f"{nm}_n"].iloc[0])
+            f[f"{nm}_ndel"] = int(E[f"{nm}_n_deliveries"].iloc[0])
+        f["escape_hits"] = E[ok & (E["escape_q"] <= .05)]["uid"].tolist()
+        f["freeze_hits"] = E[ok & (E["freeze_q"] <= .05)]["uid"].tolist()
+        f["nonresp"] = int((E["label"] == "non-responsive").sum())
+        f["zone_rows"] = E[ok & E["of_place"].isin(["centre", "corner"])]
+    d = os.path.join(PA, "events", "tap_delay.csv")
+    if os.path.exists(d):
+        T = pd.read_csv(d)
+        u = T[T["used"].astype(bool)]
+        f["delay"] = float(u["delay_estimate_s"].mean())
+        f["delay_ci"] = (float(u["onset_ci_hi"].max()),
+                         float(u["onset_ci_lo"].min()))
+        side = T[~T["used"].astype(bool)]
+        f["side_peak"] = float(side[side["stimulus"] == "pin"].iloc[0]
+                               ["peak_lag_s"])
+    m = os.path.join(PA, "motion", "freeze_bouts.csv")
+    if os.path.exists(m):
+        FZ = pd.read_csv(m)
+        f["n_freeze"] = len(FZ)
+        f["freeze_s"] = float(FZ["duration_s"].sum())
     return f
 
 
@@ -450,6 +480,186 @@ def main():
               os.path.join(PA, "match", "fig5_separability.png"),
               r"<pain>\output_split\match\fig5_separability.png", hbox=5.7)
 
+    # ---------------- set 5: the scored behaviour ----------------
+    if "E" in F:
+        s = blank(prs)
+        text(s, "Set 5 - the pain session, now that the video is scored",
+             Inches(.4), Inches(.22), Inches(12.5), Inches(.5), size=22,
+             bold=True)
+        text(s, "Manual scoring done 2026-09-14. Everything below is the "
+                "same 31 union neurons.",
+             Inches(.4), Inches(.78), Inches(12.5), Inches(.4), size=14,
+             color=ACC)
+        text(s,
+             f"What was scored\n"
+             f"  {F['pin_ndel']} pin pricks and {F['heat_ndel']} heat "
+             f"deliveries, 126 reflex taps (76 paw withdrawal, 50 flinch), "
+             f"and 4 affective\n"
+             f"  states held down as episodes (paw attending, licking or "
+             f"biting, guarding, escape or rearing).\n\n"
+             f"Three things had to be checked before any neuron was "
+             f"tested, and each one changed the answer\n\n"
+             f"  1  the clock.  The scorer writes time as frame / 25, which "
+             f"is wrong by up to 0.44 s here because the\n"
+             f"     camera dropped 11 frames. Frame numbers are mapped "
+             f"through the sync line instead.\n\n"
+             f"  2  the human.  A key press lags the event it describes. "
+             f"Measured from the video, not assumed:\n"
+             f"     {F['delay']:.2f} s (next slide).\n\n"
+             f"  3  what an event is.  Deliveries come every ~3 s in runs, "
+             f"not as isolated trials, so a per-delivery\n"
+             f"     baseline sits inside the previous response. Events are "
+             f"BOUTS: {F['pin_nbouts']} for pin, "
+             f"{F['heat_nbouts']} for heat.",
+             Inches(.4), Inches(1.35), Inches(12.5), Inches(5.3), size=13)
+        text(s, r"pain_motion.py , tap_delay.py , pain_events.py  ->  "
+                r"<pain>\output_split\events\ ",
+             Inches(.4), Inches(6.98), Inches(12.5), Inches(.4), size=9.5,
+             color=DIM, mono=True)
+
+        s = blank(prs)
+        text(s, "Set 5 - how late is the key press? Measured, not assumed",
+             Inches(.4), Inches(.22), Inches(12.5), Inches(.5), size=22,
+             bold=True)
+        img = os.path.join(PA, "events", "fig7_tap_delay.png")
+        if os.path.exists(img):
+            iw, ih = Image.open(img).size
+            mw, mh = Inches(12.5), Inches(4.1)
+            sc = min(mw / iw, mh / ih)
+            s.shapes.add_picture(img, Inches(.4)
+                                 + Emu(int((mw - iw * sc) / 2)),
+                                 Inches(.85), width=Emu(int(iw * sc)),
+                                 height=Emu(int(ih * sc)))
+        text(s,
+             f"The BOTTOM camera sees the stimulus itself - hand and "
+             f"filament. Its motion starts {F['delay']:.2f} s BEFORE the "
+             f"tap, the same for pin and for heat, so\n"
+             f"that is how late the key press is. The scoring tool's own "
+             f"built-in assumption is 0.25 s, which agrees to within "
+             f"0.07 s.\n\n"
+             f"The SIDE camera was tried first and is the wrong quantity: "
+             f"it sees the mouse, whose whole-body motion peaks "
+             f"{F['side_peak']:+.1f} s AFTER the tap\n"
+             f"because it is dominated by what the mouse does next. Using "
+             f"it would have shifted every stimulus 1.7 s the wrong way. "
+             f"It is kept in the\n"
+             f"figure as the behavioural response latency, which is worth "
+             f"knowing on its own.",
+             Inches(.4), Inches(5.15), Inches(12.5), Inches(1.7), size=12.5)
+        text(s, r"tap_delay.py  ->  <pain>\output_split\events"
+                r"\fig7_tap_delay.png , tap_delay.csv",
+             Inches(.4), Inches(6.98), Inches(12.5), Inches(.4), size=9.5,
+             color=DIM, mono=True)
+
+        s = blank(prs)
+        text(s, "Set 5 QC - the two choices the answer turned on",
+             Inches(.4), Inches(.22), Inches(12.5), Inches(.5), size=22,
+             bold=True)
+        text(s, "Both were found by checking, not by being careful in "
+                "advance. Reported because each one flipped the result.",
+             Inches(.4), Inches(.78), Inches(12.5), Inches(.4), size=14,
+             color=ACC)
+        text(s,
+             "1  A single delivery is not a trial\n"
+             "   The median gap between pin pricks is 3.2 s; only 2 pin and "
+             "1 heat deliveries have clear space on both sides. A\n"
+             "   per-delivery test with a [-3,-1] s baseline therefore "
+             "subtracts one response off the next one's baseline, and it\n"
+             "   finds nothing at all - 0 cells for either stimulus. "
+             "Grouping deliveries into bouts is what makes the question\n"
+             "   answerable.\n\n"
+             "2  The obvious baseline is not a neutral one\n"
+             "   A bout is kept only if the 5 s before it contains no "
+             "delivery - so that window is, by construction, an unusually\n"
+             "   quiet stretch: clean in 12 of 12 pin bouts against 6 of 12 "
+             "for [-12,-7] s. Subtracting it inflates every response.\n"
+             "   The count of \"responsive\" cells moves with the choice:\n\n"
+             "        baseline           session median   [-6,-1] s   "
+             "[-12,-7] s   [-20,-15] s\n"
+             "        pin                      "
+             f"{len(F['pin_hits'])}              2            0            "
+             f"1\n"
+             "        heat                     "
+             f"{len(F['heat_hits'])}              7            3            "
+             f"1\n\n"
+             "   The session median is used, because it involves no "
+             "pre-window and so no selection. A cell is called ROBUST only\n"
+             "   if it passes under all four - and that is a much shorter "
+             "list than any single one of them.\n\n"
+             "3  A bug worth naming\n"
+             "   The short and long response windows were both written as "
+             "the tuple (0.5, 3.0) and compared with `is`. Python\n"
+             "   interns identical tuple literals to one object, so the "
+             "test was always true and every \"short window\" number was\n"
+             "   silently the long one - which diluted B2's heat response "
+             "from 2.99 to 1.23 z and hid all five heat cells.",
+             Inches(.4), Inches(1.3), Inches(12.5), Inches(5.4), size=12)
+        text(s, r"pain_events.py  ->  bout_stat() docstring", Inches(.4),
+             Inches(6.98), Inches(12.5), Inches(.4), size=9.5, color=DIM,
+             mono=True)
+
+        fig_slide(prs, "Set 5 - event-locked, every neuron",
+                  "Top: the whole session with the stimuli as ticks. Then "
+                  "the population average per stimulus, the lag check, and "
+                  "one panel per neuron.",
+                  os.path.join(PA, "events", "fig8_event_locked.png"),
+                  r"<pain>\output_split\events\fig8_event_locked.png",
+                  hbox=5.7)
+
+        s = blank(prs)
+        text(s, "Set 5 - the result, and the question it was all for",
+             Inches(.4), Inches(.22), Inches(12.5), Inches(.5), size=22,
+             bold=True)
+        zr = F["zone_rows"]
+        zl = "\n".join(
+            f"     {r['uid']}  ({r['of_place']}-preferring in the open "
+            f"field, {r['of_contrast']:+.2f}):   pin "
+            f"{r['pin_resp']:+.2f} z, q = {r['pin_q']:.3f}    heat "
+            f"{r['heat_resp']:+.2f} z, q = {r['heat_q']:.3f}"
+            for _, r in zr.iterrows()) or "     none"
+        text(s,
+             f"Of {F['n_ok']} interpretable neurons\n\n"
+             f"  pin prick    {len(F['pin_hits'])} responsive"
+             + (f"  ({', '.join(F['pin_hits'])})" if F["pin_hits"] else "")
+             + f";  {len(F['pin_robust'])} robust across all four baselines"
+               f"\n"
+             f"  heat         {len(F['heat_hits'])} responsive "
+             f"({', '.join(F['heat_hits'])});  "
+             f"{len(F['heat_robust'])} robust across all four baselines "
+             f"({', '.join(F['heat_robust'])})\n"
+             f"               all {len(F['heat_hits'])} survive regressing "
+             f"movement out\n"
+             f"  escape/rear  {len(F['escape_hits'])} cells higher during "
+             f"escape episodes ({', '.join(F['escape_hits'])})\n"
+             f"  freezing     {len(F['freeze_hits'])} cell lower during "
+             f"freezing ({', '.join(F['freeze_hits'])})\n"
+             f"  nothing      {F['nonresp']} neurons respond to none of it"
+             f"\n\n"
+             f"THE COMBINED QUESTION - was the neuron that preferred the "
+             f"exposed centre also stimulus-responsive?\n"
+             f"{zl}\n\n"
+             f"     No. Neither centre-preferring cell responds to pin or "
+             f"heat. A3 comes closest on heat (q = "
+             f"{zr.iloc[0]['heat_q']:.3f}) and does not\n"
+             f"     pass. With 2 centre cells and {F['n_ok']} neurons this "
+             f"is a description of these cells, not a population result -\n"
+             f"     but the machinery to ask it now exists and every row "
+             f"carries both answers.",
+             Inches(.4), Inches(1.3), Inches(12.5), Inches(5.4), size=13)
+        text(s, r"<pain>\output_split\events\event_cells.csv , "
+                r"event_report.txt",
+             Inches(.4), Inches(6.98), Inches(12.5), Inches(.4), size=9.5,
+             color=DIM, mono=True)
+
+        fig_slide(prs, "Set 5 - movement and freezing, kept for last",
+                  f"{F.get('n_freeze', 0)} freezing bouts "
+                  f"({F.get('freeze_s', 0):.0f} s). Movement correlations "
+                  f"are all |r| < 0.09, so no cell here is a movement cell "
+                  f"- which is also why the stimulus results survive "
+                  f"regressing movement out.",
+                  os.path.join(PA, "events", "fig9_movement.png"),
+                  r"<pain>\output_split\events\fig9_movement.png", hbox=5.6)
+
     # ---------------- what is next ----------------
     s = blank(prs)
     text(s, "What is ready, and what is waiting", Inches(.4), Inches(.22),
@@ -465,18 +675,23 @@ def main():
          f"  {F['n_cen']} centre-preferring and {F['n_cor']} "
          f"corner-preferring cells of {F['n_test']} tested, all "
          f"followable into the pain session\n\n"
-         "Waiting on the manual scoring\n"
-         "  pin-prick / heat / behaviour-responsive classification, "
-         "event-locked to the scored times\n"
-         "  lock_events(t_s, z, stimulus_times) in pain_cell_traces.py "
-         "takes the times and returns\n"
-         "  (cells x events x lag) windows; stimulus times must be on the "
-         "same imaging clock as t_s\n\n"
-         "Then the question becomes one row of set 4: was the neuron that "
-         "preferred the exposed centre\n"
-         "also pin-prick responsive? For plane A that row is A1 - open "
-         "field #12, pain #3, footprint\n"
-         "agreement 0.95, and active in both sessions.",
+         "Done since, from the manual scoring (set 5)\n"
+         f"  the key-press delay measured from the video and corrected: "
+         f"{F.get('delay', 0):.2f} s\n"
+         f"  pin / heat / behaviour classification for all 31 neurons, "
+         f"event-locked to bouts\n"
+         f"  the combined question answered for both centre-preferring "
+         f"cells\n\n"
+         "What this still needs to become a result\n"
+         "  more animals. Everything here is one mouse, one open-field "
+         "session and one pain session,\n"
+         "  so every count is a description of these cells. The pipeline "
+         "takes a second session by\n"
+         "  changing two paths at the top of each script.\n"
+         "  isolated deliveries. Pin pricks every ~3 s force a bout "
+         "analysis; spacing them 15-20 s apart\n"
+         "  would let a single delivery be a trial and roughly triple the "
+         "usable contrast.",
          Inches(.4), Inches(1.1), Inches(12.5), Inches(5.4), size=13.5)
     text(s, r"nothing in <session>\output\ is touched - that is the other "
             r"agent's max-projection pipeline",

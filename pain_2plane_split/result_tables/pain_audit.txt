@@ -1,0 +1,113 @@
+===== pain audit - the session numbers the slides cite =====
+
+28 interpretable cells, 87 deliveries (53 pin, 34 heat), session 0.0-651.2 s
+
+----- 1  how close the deliveries are, and whether a pre-window can be clean
+  pin   n= 53  gap median   3.16 s   min  0.08   10th pct  1.28   90th pct  12.22
+  heat  n= 34  gap median   2.56 s   min  0.72   10th pct  1.44   90th pct  19.42
+  all   n= 87  gap median   2.76 s   min  0.08   10th pct  1.18   90th pct  13.84
+
+  fraction of PIN trials whose pre-window already contains another delivery
+  (any delivery, pin or heat, other than the trial itself)
+    [ -2.0,   0.0] s    15 of 53    28.3 %
+    [ -4.0,  -2.0] s    25 of 53    47.2 %
+    [ -6.0,  -4.0] s    24 of 53    45.3 %
+    [ -8.0,  -6.0] s    16 of 53    30.2 %
+
+  NOTE the earlier version of this count used '.sum() > 1', which requires TWO other
+  deliveries inside the window, and reported 4-6 %. The figures above are the right ones.
+
+----- 2  where the population average peaks, relative to the key press
+  mean z over all cells and all deliveries, no baseline subtracted anywhere:
+     -8.0 s   +0.099
+     -7.0 s   +0.075
+     -6.0 s   +0.024
+     -5.0 s   -0.015
+     -4.0 s   +0.089
+     -3.0 s   +0.052
+     -2.0 s   +0.100
+     -1.0 s   +0.161  <-- peak
+      0.0 s   +0.048
+      1.0 s   +0.102
+      2.0 s   +0.077
+      3.0 s   +0.073
+      4.0 s   +0.038
+      5.0 s   +0.022
+      6.0 s   +0.057
+      7.0 s   +0.071
+      8.0 s   +0.078
+  PEAK AT -1 s. A pre-window baseline therefore starts the measurement at the top
+  of the response, and forces the post-window negative by construction.
+
+----- 3  the same test with two baselines - the sign flip
+  baseline [ -2.0,  0.0] s  ->  mean over cells -0.0471 z,  Wilcoxon p = 0.004407   (SUPPRESSION)
+  baseline [ -6.0, -4.0] s  ->  mean over cells +0.1196 z,  Wilcoxon p = 0.0008751   (EXCITATION)
+  Same traces, same events, same post-window. Only the baseline moved, and the sign
+  of the population result moved with it. That is why no pre-window version is reported.
+
+----- 4  why an event-jitter null cannot be built here
+  jitter of 3-15 s in either direction, 200 draws: 30.9 % of jittered events land within 1 s of a REAL delivery
+  so the null contains the signal, is too narrow, and everything passes. The circular
+  shift of the cell's own trace is used instead - it keeps the event times fixed.
+
+----- 5  pin and heat were given in separate blocks
+  pin     12.6 -  586.2 s   (53 deliveries)
+  heat   269.2 -  517.8 s   (34 deliveries)
+  pin deliveries inside the heat block [269, 518] s:  0
+  pin, as the runs it actually is: 13-204 s (n=37);  519-586 s (n=16)
+  So 'pin versus heat' is also 'early versus middle'. Permuting the 53/34 labels
+  over the same delivery times mixes the blocks and cannot undo a confound with time.
+
+----- 6  the pin, withdrawal and flinch UP lists are the same list
+  UP lists at the exploratory q <= 0.20 (the per-delivery test, now withdrawn):
+    pin               7  A1, A2, A4, A9, B12, B13, B8
+    heat              8  A1, A12, A2, A3, B12, B18, B2, B4
+    paw_withdrawal   10  A1, A2, A4, A9, B12, B13, B18, B2, B4, B8
+    flinch            9  A1, A2, A4, B12, B13, B18, B2, B4, B8
+    pin_epoch         2  A1, A4
+    heat_epoch        4  A1, A4, B12, B2
+
+  Jaccard overlap between them  (|A n B| / |A u B|):
+    pin              vs paw_withdrawal   0.70
+    pin              vs flinch           0.60
+    heat             vs paw_withdrawal   0.50
+    heat             vs flinch           0.55
+    paw_withdrawal   vs flinch           0.90
+    pin_epoch        vs heat_epoch       0.50
+  These events sit inside the same epochs, so one finding was being counted several times.
+
+----- 7  the global stimulus-free mask is biased late
+  free frames: 41.1 % of the session
+  mean time of the free frames     390.7 s
+  mean time of the deliveries      293.6 s
+  the reference therefore sits +97 s later than what it is a reference for
+  inside the dense pin block [13, 204] s, only 11.2 % of frames are free
+  A cell that drifts up over ten minutes is therefore scored against mostly-late quiet time,
+  which looks like suppression during stimulation. TIER 1 uses the free frames within
+  +-60 s of each delivery instead, so the drift cancels.
+
+----- 8  how many deliveries have a genuinely clear pre-window
+  pin    12 of  53 have 6 s with no other delivery before them
+  heat    7 of  34 have 6 s with no other delivery before them
+  with only those 12 pin trials, the smallest effect a cell could show and still
+  clear its own shift null is 0.43 z (median over cells; 1.96 x null SD).
+  the largest effect anything actually shows is 0.41 z, so this subset cannot resolve real responses.
+
+----- 9  scoring coverage - what was actually scored, and for how long
+  behaviour              episodes   frames  seconds
+  Paw attending                 1        9      0.4
+  Licking or biting             0        0      0.0
+  Sustained lifting / guarding        0        0      0.0
+  Escape / rearing              5       97      3.9
+  reflex taps:  76 paw withdrawal,  50 flinch - these are instants, not episodes
+  The held behaviours were tapped rather than held: licking and guarding were never
+  scored at all, attending once. The reflex taps are the only substantial behaviour data.
+
+===== what each number decided =====
+  1, 8  ->  no pre-stimulus window is clean; per-delivery pin and heat responses WITHDRAWN
+  2, 3  ->  a pre-window baseline inverts the population result; the AUC suppression WITHDRAWN
+  4     ->  the jitter null is invalid; the circular shift is used instead
+  5     ->  pin versus heat is confounded with time; modality-selectivity WITHDRAWN
+  6     ->  pin, withdrawal and flinch are one finding, not four
+  7     ->  the reference must be local; TIER 1 uses +-60 s around each delivery
+  9     ->  only escape is testable among the held behaviours, and only as a hint

@@ -71,6 +71,14 @@ def facts():
         f["cen_ids"] = ", ".join(P.loc[P["preference"] == "centre", "cell"])
         f["cor_ids"] = ", ".join(P.loc[P["preference"] == "corner",
                                        "cell"]) or "none"
+    e = os.path.join(PA, "events", "event_cells.csv")
+    if os.path.exists(e):
+        f["E"] = pd.read_csv(e)
+    td = os.path.join(PA, "events", "tap_delay.csv")
+    if os.path.exists(td):
+        T = pd.read_csv(td)
+        f["delay"] = float(T.loc[T["used"].astype(bool),
+                                 "delay_estimate_s"].mean())
     lp = os.path.join(PA, "match", "linked_cells.csv")
     if os.path.exists(lp):
         f["L"] = pd.read_csv(lp)
@@ -781,24 +789,79 @@ def build():
                  r"pain_traces.csv",
         box=(.5, 1.3, 12.3, 5.1))
 
+    # ------------------------------------------- Result 5, scored video
+    E = F.get("E")
+    if E is not None:
+        ok = E["usable"] == 1
+        s = blank(prs)
+        hh = {nm: E[ok & (E[f"{nm}_q"] <= .05)]["uid"].tolist()
+              for nm in ("pin", "heat")}
+        rb = {nm: E[E[f"{nm}_robust"]]["uid"].tolist()
+              for nm in ("pin", "heat")}
+        title(s, "Result 5 - pin, heat and behaviour, after the manual "
+                 "scoring",
+              f"{int(ok.sum())} interpretable neurons; "
+              f"{len(hh['pin'])} respond to pin, {len(hh['heat'])} to heat")
+        text(s,
+             f"Three corrections came first, and each changed the answer\n"
+             f"  clock    the scorer writes frame / 25, wrong by up to "
+             f"0.44 s here; frames are mapped through the sync line\n"
+             f"  human    the key press lags the event by "
+             f"{F.get('delay', 0):.2f} s, measured from the bottom camera "
+             f"where the stimulus is\n"
+             f"  event    deliveries come every ~3 s in runs, so a "
+             f"per-delivery baseline sits in the previous response.\n"
+             f"           Events are bouts. Per delivery, nothing passes at "
+             f"all.\n\n"
+             f"Result\n"
+             f"  pin prick     {len(hh['pin'])} of {int(ok.sum())}"
+             + (f" ({', '.join(hh['pin'])})" if hh["pin"] else "")
+             + f"\n"
+               f"  heat          {len(hh['heat'])} of {int(ok.sum())} "
+               f"({', '.join(hh['heat'])}), all surviving movement "
+               f"regression;\n"
+               f"                {len(rb['heat'])} robust under all four "
+               f"baseline definitions ({', '.join(rb['heat'])})\n"
+               f"  escape/rear   "
+               f"{int((E[ok]['escape_q'] <= .05).sum())} cells\n"
+               f"  freezing      "
+               f"{int((E[ok]['freeze_q'] <= .05).sum())} cell, going down\n"
+               f"  nothing       {int((E['label'] == 'non-responsive').sum())}"
+               f" neurons\n\n"
+               f"The combined question: neither centre-preferring cell "
+               f"(A3, A7) responds to pin or heat. A3 comes closest on\n"
+               f"heat at q = "
+               f"{float(E[E.uid == 'A3'].iloc[0]['heat_q']):.3f} and does "
+               f"not pass.",
+             Inches(.55), Inches(1.3), Inches(12.3), Inches(5.3), size=12.5)
+        path_line(s, r"pain_motion.py , tap_delay.py , pain_events.py  ->  "
+                     r"<pain session>\output_split\events\ ")
+
+        fig_slide(
+            prs, "Result 5 - event-locked, every neuron",
+            "whole session, then the population average per stimulus, the "
+            "lag check, then one panel per neuron",
+            os.path.join(PA, "events", "fig8_event_locked.png"),
+            note="Red = pin, amber = heat. * marks q <= 0.05. Shading is "
+                 "SEM over bouts.",
+            pathline=r"<pain session>\output_split\events"
+                     r"\fig8_event_locked.png",
+            box=(.5, 1.3, 12.3, 5.1))
+
     # ---------------------------------------------------- 22 next
     s = blank(prs)
-    title(s, "Ready for event locking, and where everything is")
+    title(s, "What is done, what it needs, and where everything is")
     text(s,
-         "What is waiting on the manual scoring\n"
-         "  Every trace already carries a time vector on the same base as "
-         "the behaviour cameras\n"
-         "  (seconds since plane A frame 1, imaging clock), so a stimulus "
-         "time in that base\n"
-         "  indexes straight into it. lock_events() in pain_cell_traces.py "
-         "takes the scored\n"
-         "  times and returns (cells x events x lag) windows, dropping a "
-         "window rather than\n"
-         "  padding it if it would run off either end.\n"
-         "  Then: pin-prick / heat / non-responsive / behaviour-responsive "
-         "per cell, and the\n"
-         "  linked table lets a single neuron carry both its open-field and "
-         "its pain answer.",
+         "What this still needs to be a result\n"
+         "  More animals. Every count here is one mouse, one open-field "
+         "session and one pain session,\n"
+         "  so it describes these cells rather than a population. Two paths "
+         "at the top of each script\n"
+         "  point the whole pipeline at a new session.\n"
+         "  Isolated deliveries. Pin pricks every ~3 s force a bout "
+         "analysis and cost most of the\n"
+         "  contrast; spacing them 15-20 s apart would make a single "
+         "delivery a trial again.",
          Inches(.55), Inches(1.3), Inches(12.3), Inches(2.2), size=12.5)
     table(s, [
         ["what", "where"],
@@ -810,7 +873,9 @@ def build():
         ["curation sheets and the click page", r"<session>\output_split\curation\ "],
         ["timestamps", r"<session>\output_split\timestamps\ "],
         ["open-field tracking / place cells", r"<session>\output_split\tracking\ , place\ "],
-        ["cross-session matching", r"<pain session>\output_split\match\ "],
+        ["cross-session matching + the 31-cell union", r"<pain session>\output_split\match\ "],
+        ["movement and freezing", r"<pain session>\output_split\motion\ "],
+        ["scored events, responsiveness per cell", r"<pain session>\output_split\events\ "],
     ], Inches(.55), Inches(3.6), Inches(12.3), Inches(3.1), size=11.5)
     path_line(s, r"nothing in <session>\output\ is touched - that is the "
                  r"other agent's max-projection pipeline")

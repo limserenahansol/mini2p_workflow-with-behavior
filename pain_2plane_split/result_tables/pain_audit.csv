@@ -1,0 +1,29 @@
+item,value,unit
+gap_median_pin,3.16,s
+gap_median_heat,2.56,s
+gap_median_all,2.76,s
+pin_prewin_contaminated_-2_0,28.3,%
+pin_prewin_contaminated_-4_-2,47.2,%
+pin_prewin_contaminated_-6_-4,45.3,%
+pin_prewin_contaminated_-8_-6,30.2,%
+population_peak_lag,-1.0,s
+pin_effect_baseline_-2_0,-0.0471,z
+pin_p_baseline_-2_0,0.004407,p
+pin_effect_baseline_-6_-4,0.1196,z
+pin_p_baseline_-6_-4,0.0008751,p
+jitter_lands_on_real_event,30.9,%
+pin_inside_heat_block,0.0,deliveries
+jaccard_pin_paw_withdrawal,0.7,
+jaccard_pin_flinch,0.6,
+jaccard_heat_paw_withdrawal,0.5,
+jaccard_heat_flinch,0.55,
+jaccard_paw_withdrawal_flinch,0.9,
+jaccard_pin_epoch_heat_epoch,0.5,
+free_mask_fraction,41.1,%
+free_mask_time_offset,97.1,s
+free_in_pin_block,11.2,%
+pin_with_clear_prewindow,12.0,of 53
+heat_with_clear_prewindow,7.0,of 34
+detectable_effect_clear_trials,0.43,z
+scored_Paw attending,1.0,episodes
+scored_Escape / rearing,5.0,episodes

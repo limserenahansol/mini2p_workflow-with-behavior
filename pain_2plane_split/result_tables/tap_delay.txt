@@ -1,0 +1,50 @@
+===== how late is the key press? =====
+
+scoring file: ScoringAB_x12026_09_11155649.mat
+  87 deliveries: pin 53, heat 34
+  126 reflex taps: Paw withdrawal 76, Flinch / flick 50
+  the tool's own assumed lag: 250 ms (applied to its training labels only, not to these times)
+
+frame -> imaging clock through the sync line, never frame/fps: the camera
+dropped frames, and frame/25 is off by up to 0.444 s across these deliveries
+(the scorer's own Time_s column carries exactly that error).
+
+  motion onset relative to the tap. Negative = the movement came FIRST, so the tap is late by that much.
+   stimulus  camera    n   onset          95 % CI   per-delivery med [IQR]    peak      amp  used
+        pin  bottom   53   -0.32 [ -0.36, -0.28]      -0.24 [-0.88,+0.96]     -0.16   1.8713  yes
+        pin    side   53   +1.72 [ -0.32, +2.84]      +0.48 [-0.40,+1.72]     +1.80   0.2940  no
+       heat  bottom   34   -0.32 [ -0.40, -0.32]      -0.22 [-0.39,+1.30]     -0.24   2.8029  yes
+       heat    side   34   -0.08 [ -2.88, +1.64]      +0.12 [-1.61,+1.34]     +0.28   0.4732  no
+
+  Why the bottom camera and not the side camera. The bottom view contains the stimulus
+  itself - hand, filament - so its motion onset is the delivery. The side view contains the
+  mouse, and whole-body motion energy is dominated by what it does next (lick, guard, move
+  away), which builds over seconds: the side curve peaks +1.80 s after the tap for pin
+  with an interval spanning 3 s. An earlier version of this script used the side camera as
+  the primary estimate and would have shifted every stimulus 1.7 s the wrong way.
+  The side numbers are kept as the behavioural response latency, which is worth knowing.
+
+reflex taps against their own stimulus tap (this cancels the human delay, so it only checks ordering):
+  Paw withdrawal   n= 76  after the previous stimulus by median  0.08 s  | nearest stimulus 0.08 s away  | 0 taps more than 10 s from any stimulus
+  Flinch / flick   n= 50  after the previous stimulus by median  0.12 s  | nearest stimulus 0.12 s away  | 0 taps more than 10 s from any stimulus
+
+USING: delay = +0.32 s, the mean of the bottom-camera estimates (pin +0.32, heat +0.32).
+Corrected event time = scored tap time - 0.32 s.
+For comparison, the scoring tool's own built-in assumption is 0.25 s, which it applies
+only to its training labels. The two agree to within 0.07 s.
+
+Caveats, in order of how much they matter.
+  The bottom camera sees the hand APPROACH, which begins before contact, so this delay is an
+  upper bound: the true delay is somewhere between 0 and 0.32 s. The direction is certain
+  though - a person watching a recording cannot tap early.
+  The onset of an averaged curve is biased towards the earliest delivery, which is why the
+  per-delivery median is printed next to it. Where the two disagree, trust the median.
+  One delay is applied to every delivery. Human reaction time varies trial to trial, so this
+  removes the systematic part and leaves the jitter, which widens peri-stimulus averages but
+  does not shift them.
+  At 4.6 Hz imaging, 0.32 s is 1.5 imaging frames, against a response window 2.5 s wide. So this
+  correction matters for the shape of a peri-stimulus average and hardly at all for whether a
+  cell passes - pain_events.py prints the response against lag so that claim is checkable.
+  pain_events.py reports the neural response against lag as well. That profile is a CHECK on this
+  number, not its source: picking the lag that maximises the neural response and then testing
+  significance there would manufacture the result.
